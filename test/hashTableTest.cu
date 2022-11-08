@@ -23,7 +23,7 @@ struct IntHash
     }
 };
 
-void hash_table_test()
+void hashTableTest()
 {
     Key *buffer = (Key *)malloc(N * sizeof(Key));
     for (int i = 0; i < N; i++)
@@ -49,11 +49,11 @@ void hash_table_test()
     cudaMalloc((void **)&dev_lock, HASH_ENTRIES * sizeof(CudaLock));
     cudaMemcpy(dev_lock, lock, HASH_ENTRIES * sizeof(CudaLock), cudaMemcpyHostToDevice);
 
-    add_to_table<<<blocksPerGrid, threadsPerBlock>>>(dev_keys, dev_values, table, dev_lock);
+    addToTable<<<blocksPerGrid, threadsPerBlock>>>(dev_keys, dev_values, table, dev_lock);
 
     Table<Key, Val, IntHash, std::allocator> hostTable(HASH_ENTRIES, N);
 
-    copy_table_to_host(table, hostTable);
+    copyTableToHost(table, hostTable);
     Entry<Key, Val> *cur = hostTable.entries[0];
     for (int i = 0; i < 10; i++)
     {
@@ -71,5 +71,5 @@ void hash_table_test()
 
 int main()
 {
-    hash_table_test();
+    hashTableTest();
 }

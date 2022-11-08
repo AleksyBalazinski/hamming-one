@@ -43,7 +43,7 @@ void freeTable(Table<Key, T, Hash, Allocator> &table)
 }
 
 template <class Key, class T, class Hash, template <class> class Allocator, template <class> class HostAllocator>
-void copy_table_to_host(const Table<Key, T, Hash, Allocator> &table, Table<Key, T, Hash, HostAllocator> &hostTable)
+void copyTableToHost(const Table<Key, T, Hash, Allocator> &table, Table<Key, T, Hash, HostAllocator> &hostTable)
 {
     cudaMemcpy(hostTable.entries, table.entries, table.count * sizeof(Entry<Key, T> *), cudaMemcpyDeviceToHost);
     cudaMemcpy(hostTable.pool, table.pool, table.elements * sizeof(Entry<Key, T>), cudaMemcpyDeviceToHost);
@@ -61,7 +61,7 @@ void copy_table_to_host(const Table<Key, T, Hash, Allocator> &table, Table<Key, 
 }
 
 template <class Key, class T, class Hash, template <class> class Allocator>
-__global__ void add_to_table(unsigned int *keys, float *values, Table<Key, T, Hash, Allocator> table, CudaLock *lock)
+__global__ void addToTable(unsigned int *keys, float *values, Table<Key, T, Hash, Allocator> table, CudaLock *lock)
 {
     int tid = threadIdx.x + blockIdx.x * gridDim.x;
     int stride = blockDim.x * gridDim.x;
