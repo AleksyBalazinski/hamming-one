@@ -16,7 +16,6 @@ public:
 			throw std::bad_alloc();
 		}
 
-		// return static_cast<T *>(p);
 		return p;
 	}
 
