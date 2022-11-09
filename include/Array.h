@@ -14,7 +14,7 @@ private:
     friend class Array;
 
 public:
-    __host__ Array() : N(0) {}
+    Array() : N(0) {}
 
     __host__ Array(size_t N) : N(N)
     {
@@ -31,17 +31,15 @@ public:
 
     // copies all underlying memory to DST
     template <typename U, typename Allocator>
-    __host__ cudaError_t copyTo(Array<U, Allocator> &dst, cudaMemcpyKind kind)
+    cudaError_t copyTo(Array<U, Allocator> &dst, cudaMemcpyKind kind)
     {
         cudaError_t error = cudaMemcpy(dst.storage, this->storage, N * sizeof(T), kind);
 
         return error;
     }
 
-    __host__ ~Array()
+    void freeArray()
     {
-        for (size_t i = 0; i < N; i++)
-            allocator.destroy(storage + i);
         allocator.deallocate(storage, N);
     }
 };

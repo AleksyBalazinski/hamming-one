@@ -5,7 +5,7 @@ else
 endif
 
 hamming:
-	nvcc -ccbin $(CCBIN) ./src/kernel.cu -o ./bin/$@ -I ./include
+	nvcc -ccbin $(CCBIN) ./src/kernel.cu ./src/Utils.cu -o ./bin/$@ -I ./include
 
 hashTableTest:
 	nvcc -ccbin $(CCBIN) ./test/hashTableTest.cu -o ./bin/$@ -I ./include
