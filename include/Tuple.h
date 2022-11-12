@@ -25,4 +25,7 @@ struct Triple
     T1 item1;
     T2 item2;
     T3 item3;
+
+    Triple() {}
+    __host__ __device__ Triple(T1 i1, T2 i2, T3 i3) : item1(i1), item2(i2), item3(i3) {}
 };

@@ -12,3 +12,6 @@ hashTableTest:
 
 arrayTest:
 	nvcc -ccbin $(CCBIN) ./test/arrayTest.cu -o ./bin/$@ -I ./include
+
+hammingcpu:
+	nvcc -x c++ -ccbin $(CCBIN) ./src/main.cpp -o ./bin/$@ -I ./include
