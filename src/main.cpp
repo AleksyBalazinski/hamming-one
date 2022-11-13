@@ -1,4 +1,4 @@
-#define DEBUG_
+#define noDEBUG
 
 #include <string>
 #include <iostream>
@@ -63,7 +63,7 @@ std::vector<size_t> computeHashes(Iterator begin, Iterator end, int p, int m, in
 void hammingOne(std::vector<std::vector<int>> sequences)
 {
     int seqLength = sequences[0].size();
-    std::unordered_map<Triple<size_t, size_t, int>, int, TripleHash<size_t, size_t, int>> d;
+    std::unordered_map<Triple<size_t, size_t, int>, std::vector<int>, TripleHash<size_t, size_t, int>> d;
     const int p = 31;
     const int m = 1e9 + 9;
     int sId = 0;
@@ -92,16 +92,21 @@ void hammingOne(std::vector<std::vector<int>> sequences)
             auto ownHash = Triple<size_t, size_t, int>(prefixHash, suffixHash, seq[i] == 0 ? 0 : 1);
 #ifdef DEBUG
             std::cout << "seq " << sId << ", pos " << i << ":\n";
-            std::cout << "matchingHash: {" << std::get<0>(matchingHash) << ", " << std::get<1>(matchingHash) << ", " << std::get<2>(matchingHash) << "}\n";
-            std::cout << "ownHash: {" << std::get<0>(ownHash) << ", " << std::get<1>(ownHash) << ", " << std::get<2>(ownHash) << "}\n";
+            std::cout << "matchingHash: {" << matchingHash.item1 << ", " << matchingHash.item2 << ", " << matchingHash.item3 << "}\n";
+            std::cout << "ownHash: {" << ownHash.item1 << ", " << ownHash.item2 << ", " << ownHash.item3 << "}\n";
 #endif
             if (d.find(matchingHash) != d.end())
             {
-                std::cout << d[matchingHash] << ' ' << sId << '\n';
+                for (int matchingSeqId : d[matchingHash])
+                {
+                    std::cout << matchingSeqId << ' ' << sId << '\n';
+                }
             }
 
             if (d.find(ownHash) == d.end())
-                d[ownHash] = sId;
+                d[ownHash] = std::vector<int>({sId});
+            else
+                d[ownHash].push_back(sId);
         }
         sId++;
     }
@@ -129,6 +134,7 @@ int main(int argc, char **argv)
         std::cout << "\n";
     }
 
+    std::cout << "***Solution:***\n";
     hammingOne(sequences);
 }
 

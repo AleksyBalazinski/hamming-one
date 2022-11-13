@@ -29,3 +29,15 @@ struct Triple
     Triple() {}
     __host__ __device__ Triple(T1 i1, T2 i2, T3 i3) : item1(i1), item2(i2), item3(i3) {}
 };
+
+template <class T1, class T2, class T3>
+__host__ __device__ bool operator==(const Triple<T1, T2, T3> &lhs, const Triple<T1, T2, T3> &rhs)
+{
+    return (lhs.item1 == rhs.item1) && (lhs.item2 == rhs.item2) && (lhs.item3 == rhs.item3);
+}
+
+template <class T1, class T2, class T3>
+__host__ __device__ bool operator!=(const Triple<T1, T2, T3> &lhs, const Triple<T1, T2, T3> &rhs)
+{
+    return !(lhs == rhs);
+}

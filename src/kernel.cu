@@ -1,4 +1,4 @@
-#define DEBUG_
+#define noDEBUG
 
 #include <string>
 #include <iostream>
@@ -85,6 +85,20 @@ __global__ void getHashes(int *sequences, int numOfSequences, int seqLength, siz
     }
 }
 
+template <class Key, class T, class Hash>
+__global__ void findHammingOnePairs(Table<Key, T, Hash, CudaAllocator> table, Triple<size_t, size_t, int> *matchingHashes, int numOfSequences, int seqLength)
+{
+    int elemId = threadIdx.x + blockDim.x * blockIdx.x;
+    if (elemId > seqLength * numOfSequences)
+        return;
+    int seqId;
+    bool found = table.find(matchingHashes[elemId], seqId);
+    if (found)
+    {
+        printf("%d %d\n", seqId, elemId / seqLength);
+    }
+}
+
 int main(int argc, char **argv)
 {
     std::string pathToMetadata(argv[1]);
@@ -149,20 +163,54 @@ int main(int argc, char **argv)
     }
 #endif // DEBUG
 
-    // Table<Triple<size_t, size_t, int>, int, TripleHash<size_t, size_t, int>, CudaAllocator> d(HASH_ENTRIES, totalLen);
-    // CudaLock lock[HASH_ENTRIES];
-    // CudaLock *dev_lock;
+    Table<Triple<size_t, size_t, int>, int, TripleHash<size_t, size_t, int>, CudaAllocator> table(HASH_ENTRIES, totalLen);
+    CudaLock lock[HASH_ENTRIES];
+    CudaLock *dev_lock;
 
-    // cudaMalloc((void **)&dev_lock, HASH_ENTRIES * sizeof(CudaLock));
-    // cudaMemcpy(dev_lock, lock, HASH_ENTRIES * sizeof(CudaLock), cudaMemcpyHostToDevice);
+    cudaMalloc((void **)&dev_lock, HASH_ENTRIES * sizeof(CudaLock));
+    cudaMemcpy(dev_lock, lock, HASH_ENTRIES * sizeof(CudaLock), cudaMemcpyHostToDevice);
 
-    // addToTable<<<blocksPerGrid, threadsPerBlock>>>(dev_ownHashes, dev_values, d, dev_lock);
+    int *values = new int[totalLen];
+    for (int i = 0; i < numOfSequences; i++)
+    {
+        for (int j = 0; j < seqLength; j++)
+            values[i * seqLength + j] = i;
+    }
+    int *dev_values;
+    cudaMalloc(&dev_values, totalLen * sizeof(int));
+    cudaMemcpy(dev_values, values, totalLen * sizeof(int), cudaMemcpyHostToDevice);
+
+    addToTable<<<(totalLen + 32 - 1) / 32, 32>>>(dev_ownHashes, dev_values, table, dev_lock);
+
+    Table<Triple<size_t, size_t, int>, int, TripleHash<size_t, size_t, int>, std::allocator> hostTable(HASH_ENTRIES, totalLen);
+
+    copyTableToHost(table, hostTable);
+#ifdef DEBUG
+    for (int i = 0; i < HASH_ENTRIES; i++)
+    {
+        printf("bucket %d: ", i);
+        auto cur = hostTable.getEntries()[i];
+        while (cur != nullptr)
+        {
+            printf("({%llu %llu %d} -> %d) ", cur->key.item1, cur->key.item2, cur->key.item3, cur->value);
+            cur = cur->next;
+        }
+        printf("\n");
+    }
+#endif // DEBUG
+
+    findHammingOnePairs<<<(totalLen + 32 - 1) / 32, 32>>>(table, dev_matchingHashes, numOfSequences, seqLength);
 
     delete[] sequences;
     delete[] matchingHashes;
     delete[] ownHashes;
+    delete[] values;
     cudaFree(dev_prefixes);
     cudaFree(dev_suffixes);
     cudaFree(dev_matchingHashes);
     cudaFree(dev_ownHashes);
+    cudaFree(dev_values);
+
+    table.freeTable();
+    hostTable.freeTable();
 }
