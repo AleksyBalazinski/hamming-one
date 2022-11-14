@@ -23,7 +23,7 @@ struct Triple
 template <class T1, class T2, class T3>
 bool operator==(const Triple<T1, T2, T3> &lhs, const Triple<T1, T2, T3> &rhs)
 {
-    return (lhs.item1 == rhs.item2) && (lhs.item2 == rhs.item2) && (lhs.item3 == rhs.item3);
+    return (lhs.item1 == rhs.item1) && (lhs.item2 == rhs.item2) && (lhs.item3 == rhs.item3);
 }
 
 template <class T1, class T2, class T3>
@@ -63,11 +63,12 @@ std::vector<size_t> computeHashes(Iterator begin, Iterator end, int p, int m, in
 void hammingOne(std::vector<std::vector<int>> sequences)
 {
     int seqLength = sequences[0].size();
-    std::unordered_map<Triple<size_t, size_t, int>, std::vector<int>, TripleHash<size_t, size_t, int>> d;
+    std::unordered_multimap<Triple<size_t, size_t, int>, int, TripleHash<size_t, size_t, int>> d;
     const int p = 31;
     const int m = 1e9 + 9;
     int sId = 0;
-
+    std::vector<Triple<size_t, size_t, int>> ownHashes;
+    std::vector<Triple<size_t, size_t, int>> matchingHashes;
     for (const auto &seq : sequences)
     {
         auto h1 = computeHashes(seq.cbegin(), seq.cend(), p, m, seqLength);
@@ -90,25 +91,48 @@ void hammingOne(std::vector<std::vector<int>> sequences)
 
             auto matchingHash = Triple<size_t, size_t, int>(prefixHash, suffixHash, erased == 0 ? 1 : 0);
             auto ownHash = Triple<size_t, size_t, int>(prefixHash, suffixHash, seq[i] == 0 ? 0 : 1);
+
+            ownHashes.push_back(ownHash);
+            matchingHashes.push_back(matchingHash);
 #ifdef DEBUG
             std::cout << "seq " << sId << ", pos " << i << ":\n";
             std::cout << "matchingHash: {" << matchingHash.item1 << ", " << matchingHash.item2 << ", " << matchingHash.item3 << "}\n";
             std::cout << "ownHash: {" << ownHash.item1 << ", " << ownHash.item2 << ", " << ownHash.item3 << "}\n";
 #endif
-            if (d.find(matchingHash) != d.end())
-            {
-                for (int matchingSeqId : d[matchingHash])
-                {
-                    std::cout << matchingSeqId << ' ' << sId << '\n';
-                }
-            }
+            // if (d.find(matchingHash) != d.end())
+            // {
+            //     for (int matchingSeqId : d[matchingHash])
+            //     {
+            //         std::cout << matchingSeqId << ' ' << sId << '\n';
+            //     }
+            // }
 
-            if (d.find(ownHash) == d.end())
-                d[ownHash] = std::vector<int>({sId});
-            else
-                d[ownHash].push_back(sId);
+            // if (d.find(ownHash) == d.end())
+            //     d[ownHash] = std::vector<int>({sId});
+            // else
+            //     d[ownHash].push_back(sId);
         }
         sId++;
+    }
+
+    for (int i = 0; i < ownHashes.size(); i++)
+    {
+        d.insert({ownHashes[i], i / seqLength});
+    }
+
+    for (int i = 0; i < matchingHashes.size(); i++)
+    {
+        auto iters = d.equal_range(matchingHashes[i]);
+        if (iters.first == d.end() && iters.second == d.end())
+        {
+            // std::cout << "not found\n";
+            continue;
+        }
+
+        for (auto it = iters.first; it != iters.second; it++)
+        {
+            std::cout << i / seqLength << ' ' << it->second << '\n';
+        }
     }
 }
 
