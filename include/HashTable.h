@@ -68,6 +68,13 @@ public:
         return true;
     }
 
+    __host__ __device__ Entry<Key, T> *getBucket(Key key)
+    {
+        size_t hashValue = hasher(key) % count;
+
+        return entries[hashValue];
+    }
+
     void freeTable()
     {
         entryAllocator.deallocate(pool, elements);

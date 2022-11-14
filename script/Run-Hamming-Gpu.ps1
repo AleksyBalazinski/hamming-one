@@ -4,5 +4,5 @@ param (
     [string]$log = "gpu.log"
 )
 
-./bin/hamming.exe $metadata $data > $log
+./bin/hamming.exe $metadata $data | Out-File -encoding ascii $log
 Write-Output "Process returned $($LASTEXITCODE)"

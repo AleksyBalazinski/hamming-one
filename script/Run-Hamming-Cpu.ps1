@@ -4,5 +4,5 @@ param (
     [string]$log = "cpu.log"
 )
 
-./bin/hammingcpu.exe $metadata $data > $log
+./bin/hammingcpu.exe $metadata $data | Out-File -encoding ascii $log
 Write-Output "Process returned $($LASTEXITCODE)"

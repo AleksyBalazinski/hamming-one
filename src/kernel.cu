@@ -91,12 +91,21 @@ __global__ void findHammingOnePairs(Table<Key, T, Hash, CudaAllocator> table, Tr
     int elemId = threadIdx.x + blockDim.x * blockIdx.x;
     if (elemId > seqLength * numOfSequences)
         return;
-    int seqId;
-    bool found = table.find(matchingHashes[elemId], seqId);
-    if (found)
+    // int seqId;
+    //  bool found = table.find(matchingHashes[elemId], seqId);
+    Entry<Key, T> *cur = table.getBucket(matchingHashes[elemId]);
+    while (cur != nullptr)
     {
-        printf("%d %d\n", seqId, elemId / seqLength);
+        if (cur->key == matchingHashes[elemId])
+        {
+            printf("%d %d\n", cur->value, elemId / seqLength);
+        }
+        cur = cur->next;
     }
+    // if (found)
+    // {
+    //     printf("%d %d\n", seqId, elemId / seqLength);
+    // }
 }
 
 int main(int argc, char **argv)
