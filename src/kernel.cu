@@ -13,11 +13,14 @@
 constexpr size_t P = 31;
 constexpr size_t M = 1e9 + 9;
 
+//#define imin(a, b) ((a) < (b) ? (a) : (b))
+#define imin(a, b) (b)
 #define HASH_ENTRIES 10
+#define PRINTF_FIFO_SIZE (long long int)1e15
 
 int blocksNum(int threads, int threadsPerBlock)
 {
-    return (threads + threadsPerBlock - 1) / threadsPerBlock;
+    return imin(32, threads + threadsPerBlock - 1) / threadsPerBlock;
 }
 
 __device__ void computePrefixHashes(int *sequence, int seqLength, size_t *prefixHashes)
@@ -52,7 +55,7 @@ __global__ void getHashes(int *sequences, int numOfSequences, int seqLength, siz
                           Triple<size_t, size_t, int> *matchingHashes, Triple<size_t, size_t, int> *ownHasbes)
 {
     int seqId = threadIdx.x + blockDim.x * blockIdx.x;
-    if (seqId > numOfSequences)
+    if (seqId > numOfSequences - 1)
         return;
 
     int offset = seqId * seqLength;
@@ -82,6 +85,9 @@ __global__ void getHashes(int *sequences, int numOfSequences, int seqLength, siz
 
         curMatchingHashes[i] = Triple<size_t, size_t, int>(prefixHash, suffixHash, erased == 0 ? 1 : 0);
         curOwnHashes[i] = Triple<size_t, size_t, int>(prefixHash, suffixHash, erased);
+        // printf("seq %d, pos %d: matchingHash: {%llu, %llu, %d} ownHash: {%llu, %llu, %d}\n",
+        //        seqId, i, prefixHash, suffixHash, erased == 0 ? 1 : 0,
+        //        prefixHash, suffixHash, erased);
     }
 }
 
@@ -89,10 +95,9 @@ template <class Key, class T, class Hash>
 __global__ void findHammingOnePairs(Table<Key, T, Hash, CudaAllocator> table, Triple<size_t, size_t, int> *matchingHashes, int numOfSequences, int seqLength)
 {
     int elemId = threadIdx.x + blockDim.x * blockIdx.x;
-    if (elemId > seqLength * numOfSequences)
+    if (elemId > seqLength * numOfSequences - 1)
         return;
-    // int seqId;
-    //  bool found = table.find(matchingHashes[elemId], seqId);
+
     Entry<Key, T> *cur = table.getBucket(matchingHashes[elemId]);
     while (cur != nullptr)
     {
@@ -102,27 +107,27 @@ __global__ void findHammingOnePairs(Table<Key, T, Hash, CudaAllocator> table, Tr
         }
         cur = cur->next;
     }
-    // if (found)
-    // {
-    //     printf("%d %d\n", seqId, elemId / seqLength);
-    // }
 }
 
 int main(int argc, char **argv)
 {
+    cudaDeviceSetLimit(cudaLimitPrintfFifoSize, PRINTF_FIFO_SIZE);
+
     std::string pathToMetadata(argv[1]);
     std::string pathToData(argv[2]);
 
     int numOfSequences, seqLength;
     readMetadataFile(pathToMetadata, numOfSequences, seqLength);
+#ifdef DEBUG
     std::cout << numOfSequences << ' ' << seqLength << '\n'; // TEST
+#endif
     size_t totalLen = numOfSequences * seqLength;
 
     int *sequences = new int[totalLen];
     readDataFromFile(pathToData, sequences, numOfSequences, seqLength);
+#ifdef DEBUG
     printSequences(sequences, numOfSequences, seqLength); // TEST
-
-    int blocks = blocksNum(numOfSequences, 4);
+#endif
 
     Triple<size_t, size_t, int> *matchingHashes = new Triple<size_t, size_t, int>[totalLen];
     Triple<size_t, size_t, int> *ownHashes = new Triple<size_t, size_t, int>[totalLen];
@@ -140,7 +145,7 @@ int main(int argc, char **argv)
     cudaMalloc(&dev_matchingHashes, totalLen * sizeof(Triple<size_t, size_t, int>));
     cudaMalloc(&dev_ownHashes, totalLen * sizeof(Triple<size_t, size_t, int>));
 
-    getHashes<<<blocks, 4>>>(dev_sequences, numOfSequences, seqLength, dev_prefixes, dev_suffixes, dev_matchingHashes, dev_ownHashes);
+    getHashes<<<blocksNum(numOfSequences, 256), 256>>>(dev_sequences, numOfSequences, seqLength, dev_prefixes, dev_suffixes, dev_matchingHashes, dev_ownHashes);
 
     cudaMemcpy(matchingHashes, dev_matchingHashes, totalLen * sizeof(Triple<size_t, size_t, int>), cudaMemcpyDeviceToHost);
     cudaMemcpy(ownHashes, dev_ownHashes, totalLen * sizeof(Triple<size_t, size_t, int>), cudaMemcpyDeviceToHost);
@@ -189,7 +194,7 @@ int main(int argc, char **argv)
     cudaMalloc(&dev_values, totalLen * sizeof(int));
     cudaMemcpy(dev_values, values, totalLen * sizeof(int), cudaMemcpyHostToDevice);
 
-    addToTable<<<(totalLen + 32 - 1) / 32, 32>>>(dev_ownHashes, dev_values, table, dev_lock);
+    addToTable<<<blocksNum(totalLen, 256), 256>>>(dev_ownHashes, dev_values, table, dev_lock);
 
     Table<Triple<size_t, size_t, int>, int, TripleHash<size_t, size_t, int>, std::allocator> hostTable(HASH_ENTRIES, totalLen);
 
@@ -208,7 +213,7 @@ int main(int argc, char **argv)
     }
 #endif // DEBUG
 
-    findHammingOnePairs<<<(totalLen + 32 - 1) / 32, 32>>>(table, dev_matchingHashes, numOfSequences, seqLength);
+    findHammingOnePairs<<<blocksNum(totalLen, 256), 256>>>(table, dev_matchingHashes, numOfSequences, seqLength);
 
     delete[] sequences;
     delete[] matchingHashes;

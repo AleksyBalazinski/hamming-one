@@ -143,22 +143,10 @@ int main(int argc, char **argv)
 
     int numOfSequences, seqLength;
     readMetadataFile(pathToMetadata, numOfSequences, seqLength);
-    std::cout << numOfSequences << ' ' << seqLength << '\n'; // TEST
 
     std::vector<std::vector<int>> sequences(numOfSequences, std::vector<int>(seqLength));
     readDataFile(pathToData, sequences);
 
-    for (int seq = 0; seq < numOfSequences; seq++)
-    {
-        std::cout << seq << ": ";
-        for (int j = 0; j < seqLength; j++)
-        {
-            std::cout << sequences[seq][j];
-        }
-        std::cout << "\n";
-    }
-
-    std::cout << "***Solution:***\n";
     hammingOne(sequences);
 }
 

@@ -4,6 +4,8 @@ else
 	CCBIN=g++
 endif
 
+all: hamming hammingcpu bruteforcecpu generator compareResults
+
 hamming:
 	nvcc -ccbin $(CCBIN) ./src/kernel.cu ./src/Utils.cu -o ./bin/$@ -I ./include
 
@@ -14,4 +16,13 @@ arrayTest:
 	nvcc -ccbin $(CCBIN) ./test/arrayTest.cu -o ./bin/$@ -I ./include
 
 hammingcpu:
-	nvcc -x c++ -ccbin $(CCBIN) ./src/main.cpp -o ./bin/$@ -I ./include
+	nvcc -x c++ -ccbin $(CCBIN) ./src/linear.cpp -o ./bin/$@ -I ./include
+
+bruteforcecpu:
+	g++ ./src/bruteForce.cpp -o ./bin/$@
+
+generator:
+	g++ ./src/generator.cpp -o ./bin/$@
+
+compareResults:
+	g++ ./test/compareResults.cpp -o ./bin/$@
