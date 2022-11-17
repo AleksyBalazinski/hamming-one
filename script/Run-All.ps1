@@ -31,7 +31,7 @@ Write-Output "Linear on CPU took $($timeLinCpu.Minutes):$($timeLinCpu.Seconds):$
 
 # compute results - linear on GPU
 $timeLinGpu = Measure-Command {
-    ./bin/hamming.exe $metadata $data $hashEntries | Out-File -encoding ascii $logGpuLin
+    ./bin/hamming2.exe $metadata $data | Out-File -encoding ascii $logGpuLin
     Write-Output "Process returned $($LASTEXITCODE)"
 }
 Write-Output "Linear on GPU took $($timeLinGpu.Minutes):$($timeLinGpu.Seconds):$($timeLinGpu.Milliseconds)"

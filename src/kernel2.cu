@@ -1,19 +1,42 @@
-#define noDEBUG
-
 #include <string>
+#include <thrust/device_ptr.h>
+#include <thrust/sort.h>
 #include <iostream>
 
-#include "Array.h"
 #include "Utils.h"
-#include "CudaAllocator.h"
-#include "Tuple.h"
-#include "HashTable.h"
-#include "Hash.h"
 
 constexpr size_t P = 31;
 constexpr size_t M = 1e9 + 9;
 
-//#define imin(a, b) ((a) < (b) ? (a) : (b))
+struct Slot
+{
+    size_t prefix;
+    size_t suffix;
+    int erased;
+    int seqId;
+
+    __host__ __device__ Slot(size_t prefix, size_t suffix, int erased, int seqId)
+        : prefix(prefix), suffix(suffix), erased(erased), seqId(seqId)
+    {
+    }
+
+    __host__ __device__ Slot() {}
+};
+
+__host__ __device__ bool operator<(const Slot &a, const Slot &b)
+{
+    if (a.prefix != b.prefix)
+        return a.prefix < b.prefix;
+    if (a.suffix != b.suffix)
+        return a.suffix < b.suffix;
+    return a.erased < b.erased;
+}
+
+__host__ __device__ bool operator>(const Slot &a, const Slot &b)
+{
+    return (b < a);
+}
+
 #define imin(a, b) (b)
 #define PRINTF_FIFO_SIZE (long long int)1e15
 
@@ -51,7 +74,7 @@ __device__ void computeSuffixHashes(int *sequence, int seqLength, size_t *suffix
 }
 
 __global__ void getHashes(int *sequences, int numOfSequences, int seqLength, size_t *prefixes, size_t *suffixes,
-                          Triple<size_t, size_t, int> *matchingHashes, Triple<size_t, size_t, int> *ownHasbes)
+                          Slot *matchingHashes, Slot *ownHasbes)
 {
     int seqId = threadIdx.x + blockDim.x * blockIdx.x;
     if (seqId > numOfSequences - 1)
@@ -61,8 +84,8 @@ __global__ void getHashes(int *sequences, int numOfSequences, int seqLength, siz
     int *sequence = sequences + offset;
     size_t *curPrefixes = prefixes + offset;
     size_t *curSuffixes = suffixes + offset;
-    Triple<size_t, size_t, int> *curMatchingHashes = matchingHashes + offset;
-    Triple<size_t, size_t, int> *curOwnHashes = ownHasbes + offset;
+    Slot *curMatchingHashes = matchingHashes + offset;
+    Slot *curOwnHashes = ownHasbes + offset;
     computePrefixHashes(sequence, seqLength, curPrefixes);
     computeSuffixHashes(sequence, seqLength, curSuffixes);
 
@@ -82,26 +105,33 @@ __global__ void getHashes(int *sequences, int numOfSequences, int seqLength, siz
 
         int erased = sequence[i];
 
-        curMatchingHashes[i] = Triple<size_t, size_t, int>(prefixHash, suffixHash, erased == 0 ? 1 : 0);
-        curOwnHashes[i] = Triple<size_t, size_t, int>(prefixHash, suffixHash, erased);
+        curMatchingHashes[i] = Slot(prefixHash, suffixHash, erased == 0 ? 1 : 0, seqId);
+        curOwnHashes[i] = Slot(prefixHash, suffixHash, erased, seqId);
     }
 }
 
-template <class Key, class T, class Hash>
-__global__ void findHammingOnePairs(Table<Key, T, Hash, CudaAllocator> table, Triple<size_t, size_t, int> *matchingHashes, int numOfSequences, int seqLength)
+__global__ void findHammingOnePairs(Slot *ownHashes, Slot *matchingHashes, int numOfSequences, int seqLength)
 {
     int elemId = threadIdx.x + blockDim.x * blockIdx.x;
-    if (elemId > seqLength * numOfSequences - 1)
+    int totalLen = numOfSequences * seqLength;
+    if (elemId > totalLen - 1)
         return;
 
-    Entry<Key, T> *cur = table.getBucket(matchingHashes[elemId]);
-    while (cur != nullptr)
+    Slot curMatchingHash = matchingHashes[elemId];
+    int l = 0;
+    int r = totalLen - 1;
+    while (l <= r)
     {
-        if (cur->key == matchingHashes[elemId])
+        int mid = (l + r) / 2;
+        if (ownHashes[mid] < curMatchingHash)
+            l = mid + 1;
+        else if (ownHashes[mid] > curMatchingHash)
+            r = mid - 1;
+        else
         {
-            printf("%d %d\n", cur->value, elemId / seqLength);
+            printf("%d %d\n", ownHashes[mid].seqId, elemId / seqLength);
+            return;
         }
-        cur = cur->next;
     }
 }
 
@@ -111,13 +141,13 @@ int main(int argc, char **argv)
 
     std::string pathToMetadata(argv[1]);
     std::string pathToData(argv[2]);
-    const int HASH_ENTRIES = std::stoi(argv[3]);
 
     int numOfSequences, seqLength;
     readMetadataFile(pathToMetadata, numOfSequences, seqLength);
 
     size_t totalLen = numOfSequences * seqLength;
     int *sequences = new int[totalLen];
+
     readDataFromFile(pathToData, sequences, numOfSequences, seqLength);
 
     int *dev_sequences;
@@ -126,32 +156,21 @@ int main(int argc, char **argv)
 
     size_t *dev_prefixes;
     size_t *dev_suffixes;
-    Triple<size_t, size_t, int> *dev_matchingHashes;
-    Triple<size_t, size_t, int> *dev_ownHashes;
+    Slot *dev_matchingHashes;
+    Slot *dev_ownHashes;
     cudaMalloc(&dev_prefixes, totalLen * sizeof(size_t));
     cudaMalloc(&dev_suffixes, totalLen * sizeof(size_t));
-    cudaMalloc(&dev_matchingHashes, totalLen * sizeof(Triple<size_t, size_t, int>));
-    cudaMalloc(&dev_ownHashes, totalLen * sizeof(Triple<size_t, size_t, int>));
+    cudaMalloc(&dev_matchingHashes, totalLen * sizeof(Slot));
+    cudaMalloc(&dev_ownHashes, totalLen * sizeof(Slot));
 
     getHashes<<<blocksNum(numOfSequences, 256), 256>>>(dev_sequences, numOfSequences, seqLength, dev_prefixes, dev_suffixes, dev_matchingHashes, dev_ownHashes);
+    thrust::sort(thrust::device, dev_ownHashes, dev_ownHashes + totalLen);
 
-    Table<Triple<size_t, size_t, int>, int, TripleHash<size_t, size_t, int>, CudaAllocator> table(HASH_ENTRIES, totalLen);
-    CudaLock *lock = new CudaLock[HASH_ENTRIES];
-    CudaLock *dev_lock;
-
-    cudaMalloc((void **)&dev_lock, HASH_ENTRIES * sizeof(CudaLock));
-    cudaMemcpy(dev_lock, lock, HASH_ENTRIES * sizeof(CudaLock), cudaMemcpyHostToDevice);
-
-    addToTable<<<blocksNum(totalLen, 256), 256>>>(dev_ownHashes, table, dev_lock, seqLength);
-
-    findHammingOnePairs<<<blocksNum(totalLen, 256), 256>>>(table, dev_matchingHashes, numOfSequences, seqLength);
+    findHammingOnePairs<<<blocksNum(totalLen, 256), 256>>>(dev_ownHashes, dev_matchingHashes, numOfSequences, seqLength);
 
     delete[] sequences;
-    delete[] lock;
     cudaFree(dev_prefixes);
     cudaFree(dev_suffixes);
     cudaFree(dev_matchingHashes);
     cudaFree(dev_ownHashes);
-    cudaFree(dev_lock);
-    table.freeTable();
 }
