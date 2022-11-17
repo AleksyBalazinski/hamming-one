@@ -15,12 +15,11 @@ constexpr size_t M = 1e9 + 9;
 
 //#define imin(a, b) ((a) < (b) ? (a) : (b))
 #define imin(a, b) (b)
-#define HASH_ENTRIES 10
 #define PRINTF_FIFO_SIZE (long long int)1e15
 
 int blocksNum(int threads, int threadsPerBlock)
 {
-    return imin(32, threads + threadsPerBlock - 1) / threadsPerBlock;
+    return imin(32, (threads + threadsPerBlock - 1) / threadsPerBlock);
 }
 
 __device__ void computePrefixHashes(int *sequence, int seqLength, size_t *prefixHashes)
@@ -85,9 +84,6 @@ __global__ void getHashes(int *sequences, int numOfSequences, int seqLength, siz
 
         curMatchingHashes[i] = Triple<size_t, size_t, int>(prefixHash, suffixHash, erased == 0 ? 1 : 0);
         curOwnHashes[i] = Triple<size_t, size_t, int>(prefixHash, suffixHash, erased);
-        // printf("seq %d, pos %d: matchingHash: {%llu, %llu, %d} ownHash: {%llu, %llu, %d}\n",
-        //        seqId, i, prefixHash, suffixHash, erased == 0 ? 1 : 0,
-        //        prefixHash, suffixHash, erased);
     }
 }
 
@@ -115,6 +111,7 @@ int main(int argc, char **argv)
 
     std::string pathToMetadata(argv[1]);
     std::string pathToData(argv[2]);
+    const int HASH_ENTRIES = std::stoi(argv[3]);
 
     int numOfSequences, seqLength;
     readMetadataFile(pathToMetadata, numOfSequences, seqLength);
@@ -122,15 +119,12 @@ int main(int argc, char **argv)
     std::cout << numOfSequences << ' ' << seqLength << '\n'; // TEST
 #endif
     size_t totalLen = numOfSequences * seqLength;
-
+    // const int HASH_ENTRIES = totalLen / loadFactor;
     int *sequences = new int[totalLen];
     readDataFromFile(pathToData, sequences, numOfSequences, seqLength);
 #ifdef DEBUG
     printSequences(sequences, numOfSequences, seqLength); // TEST
 #endif
-
-    Triple<size_t, size_t, int> *matchingHashes = new Triple<size_t, size_t, int>[totalLen];
-    Triple<size_t, size_t, int> *ownHashes = new Triple<size_t, size_t, int>[totalLen];
 
     int *dev_sequences;
     cudaMalloc(&dev_sequences, totalLen * sizeof(int));
@@ -147,8 +141,6 @@ int main(int argc, char **argv)
 
     getHashes<<<blocksNum(numOfSequences, 256), 256>>>(dev_sequences, numOfSequences, seqLength, dev_prefixes, dev_suffixes, dev_matchingHashes, dev_ownHashes);
 
-    cudaMemcpy(matchingHashes, dev_matchingHashes, totalLen * sizeof(Triple<size_t, size_t, int>), cudaMemcpyDeviceToHost);
-    cudaMemcpy(ownHashes, dev_ownHashes, totalLen * sizeof(Triple<size_t, size_t, int>), cudaMemcpyDeviceToHost);
 #ifdef DEBUG
     std::cout << "matchingHashes:\n";
     for (int seq = 0; seq < numOfSequences; seq++)
@@ -178,28 +170,19 @@ int main(int argc, char **argv)
 #endif // DEBUG
 
     Table<Triple<size_t, size_t, int>, int, TripleHash<size_t, size_t, int>, CudaAllocator> table(HASH_ENTRIES, totalLen);
-    CudaLock lock[HASH_ENTRIES];
+    CudaLock *lock = new CudaLock[HASH_ENTRIES];
     CudaLock *dev_lock;
 
     cudaMalloc((void **)&dev_lock, HASH_ENTRIES * sizeof(CudaLock));
     cudaMemcpy(dev_lock, lock, HASH_ENTRIES * sizeof(CudaLock), cudaMemcpyHostToDevice);
 
-    int *values = new int[totalLen];
-    for (int i = 0; i < numOfSequences; i++)
-    {
-        for (int j = 0; j < seqLength; j++)
-            values[i * seqLength + j] = i;
-    }
-    int *dev_values;
-    cudaMalloc(&dev_values, totalLen * sizeof(int));
-    cudaMemcpy(dev_values, values, totalLen * sizeof(int), cudaMemcpyHostToDevice);
+    addToTable<<<blocksNum(totalLen, 256), 256>>>(dev_ownHashes, table, dev_lock, seqLength);
 
-    addToTable<<<blocksNum(totalLen, 256), 256>>>(dev_ownHashes, dev_values, table, dev_lock);
-
+#ifdef DEBUG
     Table<Triple<size_t, size_t, int>, int, TripleHash<size_t, size_t, int>, std::allocator> hostTable(HASH_ENTRIES, totalLen);
 
     copyTableToHost(table, hostTable);
-#ifdef DEBUG
+
     for (int i = 0; i < HASH_ENTRIES; i++)
     {
         printf("bucket %d: ", i);
@@ -216,15 +199,15 @@ int main(int argc, char **argv)
     findHammingOnePairs<<<blocksNum(totalLen, 256), 256>>>(table, dev_matchingHashes, numOfSequences, seqLength);
 
     delete[] sequences;
-    delete[] matchingHashes;
-    delete[] ownHashes;
-    delete[] values;
+    delete[] lock;
     cudaFree(dev_prefixes);
     cudaFree(dev_suffixes);
     cudaFree(dev_matchingHashes);
     cudaFree(dev_ownHashes);
-    cudaFree(dev_values);
+    cudaFree(dev_lock);
 
     table.freeTable();
+#ifdef DEBUG
     hostTable.freeTable();
+#endif
 }

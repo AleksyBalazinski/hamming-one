@@ -6,16 +6,18 @@
 void readDataFile(std::string path, std::vector<std::vector<int>> &sequences);
 void readMetadataFile(std::string path, int &numOfSequences, int &sequenceLength);
 
-int dist(std::vector<int> s1, std::vector<int> s2)
+bool isDistOne(std::vector<int> s1, std::vector<int> s2)
 {
     int dist = 0;
     for (int i = 0; i < s1.size(); i++)
     {
         if (s1[i] != s2[i])
             dist++;
+        if (dist > 1)
+            return false;
     }
 
-    return dist;
+    return dist == 1;
 }
 
 void hammingOne(std::vector<std::vector<int>> sequences)
@@ -24,7 +26,7 @@ void hammingOne(std::vector<std::vector<int>> sequences)
     {
         for (int j = 0; j < sequences.size(); j++)
         {
-            if (dist(sequences[i], sequences[j]) == 1)
+            if (isDistOne(sequences[i], sequences[j]))
             {
                 std::cout << i << ' ' << j << '\n';
             }

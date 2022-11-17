@@ -19,7 +19,8 @@ public:
 	}
 	__device__ void unlock()
 	{
-		atomicExch(mutex, 0);
 		__threadfence();
+		atomicExch(mutex, 0);
+		//__threadfence();
 	}
 };

@@ -126,3 +126,30 @@ __global__ void addToTable(Key *keys, T *values, Table<Key, T, Hash, Allocator> 
         tid += stride;
     }
 }
+
+template <class Key, class Hash, template <class> class Allocator>
+__global__ void addToTable(Key *keys, Table<Key, int, Hash, Allocator> table, CudaLock *lock, int seqLength)
+{
+    int tid = threadIdx.x + blockDim.x * blockIdx.x;
+    int stride = blockDim.x * gridDim.x;
+    while (tid < table.elements)
+    {
+        Key key = keys[tid];
+        int value = tid / seqLength;
+        size_t hashValue = table.hasher(key) % table.count;
+        for (int i = 0; i < 32; i++)
+        {
+            if (i == tid % 32)
+            {
+                Entry<Key, int> *location = &(table.pool[tid]);
+                location->key = key;
+                location->value = value;
+                lock[hashValue].lock();
+                location->next = table.entries[hashValue];
+                table.entries[hashValue] = location;
+                lock[hashValue].unlock();
+            }
+        }
+        tid += stride;
+    }
+}
