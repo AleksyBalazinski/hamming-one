@@ -20,7 +20,7 @@ struct PairHash
 template <class T1, class T2, class T3>
 struct TripleHash
 {
-    __host__ __device__ size_t operator()(Triple<T1, T2, T3> triple)
+    __host__ __device__ size_t operator()(Triple<T1, T2, T3> triple) const
     {
         return triple.item1 ^ triple.item2 ^ triple.item3;
     }

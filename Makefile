@@ -10,7 +10,10 @@ hamming:
 	nvcc -ccbin $(CCBIN) ./src/kernel.cu ./src/Utils.cu -o ./bin/$@ -I ./include
 
 hamming2:
-	nvcc -ccbin $(CCBIN) ./src/kernel2.cu ./src/Utils.cu -o ./bin/$@ -I ./include
+	nvcc -ccbin $(CCBIN) -O3 ./src/kernel2.cu ./src/Utils.cu -o ./bin/$@ -I ./include
+
+hamming3:
+	nvcc -ccbin $(CCBIN) -O3 ./src/kernel3.cu ./src/Utils.cu -o ./bin/$@ -I ./include
 
 hashTableTest:
 	nvcc -ccbin $(CCBIN) ./test/hashTableTest.cu -o ./bin/$@ -I ./include

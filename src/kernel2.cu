@@ -37,6 +37,16 @@ __host__ __device__ bool operator>(const Slot &a, const Slot &b)
     return (b < a);
 }
 
+__host__ __device__ bool operator==(const Slot &a, const Slot &b)
+{
+    return a.prefix == b.prefix && a.suffix == b.suffix && a.erased == b.erased;
+}
+
+__host__ __device__ bool operator!=(const Slot &a, const Slot &b)
+{
+    return !(a == b);
+}
+
 #define imin(a, b) (b)
 #define PRINTF_FIFO_SIZE (long long int)1e15
 
@@ -120,18 +130,44 @@ __global__ void findHammingOnePairs(Slot *ownHashes, Slot *matchingHashes, int n
     Slot curMatchingHash = matchingHashes[elemId];
     int l = 0;
     int r = totalLen - 1;
+    int begin = -1;
     while (l <= r)
     {
-        int mid = (l + r) / 2;
-        if (ownHashes[mid] < curMatchingHash)
-            l = mid + 1;
-        else if (ownHashes[mid] > curMatchingHash)
+        int mid = (r - l) / 2 + l;
+        if (ownHashes[mid] > curMatchingHash)
             r = mid - 1;
-        else
+        else if (ownHashes[mid] == curMatchingHash)
         {
-            printf("%d %d\n", ownHashes[mid].seqId, elemId / seqLength);
-            return;
+            begin = mid;
+            r = mid - 1;
         }
+        else
+            l = mid + 1;
+    }
+
+    int end = -1;
+    l = 0;
+    r = totalLen - 1;
+    while (l <= r)
+    {
+        int mid = (r - l) / 2 + l;
+        if (ownHashes[mid] > curMatchingHash)
+            r = mid - 1;
+        else if (ownHashes[mid] == curMatchingHash)
+        {
+            end = mid;
+            l = mid + 1;
+        }
+        else
+            l = mid + 1;
+    }
+
+    if (begin == -1 || end == -1)
+        return;
+
+    for (int i = begin; i <= end; i++)
+    {
+        printf("%d %d\n", ownHashes[i].seqId, elemId / seqLength);
     }
 }
 
