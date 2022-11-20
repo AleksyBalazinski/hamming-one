@@ -42,7 +42,7 @@ struct TripleHash
 };
 
 template <typename Iterator>
-std::vector<size_t> computeHashes(Iterator begin, Iterator end, int p, int m, int seqLength)
+std::vector<size_t> computeHashes(Iterator begin, Iterator end, int p, size_t m, int seqLength)
 {
     size_t hashValue = 0;
     size_t pPow = 1;
@@ -65,14 +65,15 @@ void hammingOne(std::vector<std::vector<int>> sequences)
     int seqLength = sequences[0].size();
     std::unordered_multimap<Triple<size_t, size_t, int>, int, TripleHash<size_t, size_t, int>> d;
     const int p = 31;
-    const int m = 1e9 + 9;
+    const size_t m1 = 4757501900887;
+    constexpr size_t m2 = 3348549226339;
     int sId = 0;
     std::vector<Triple<size_t, size_t, int>> ownHashes;
     std::vector<Triple<size_t, size_t, int>> matchingHashes;
     for (const auto &seq : sequences)
     {
-        auto h1 = computeHashes(seq.cbegin(), seq.cend(), p, m, seqLength);
-        auto h2 = computeHashes(seq.crbegin(), seq.crend(), p, m, seqLength);
+        auto h1 = computeHashes(seq.cbegin(), seq.cend(), p, m1, seqLength);
+        auto h2 = computeHashes(seq.crbegin(), seq.crend(), p, m2, seqLength);
         for (int i = 0; i < seqLength; i++)
         {
             size_t prefixHash;
@@ -94,23 +95,6 @@ void hammingOne(std::vector<std::vector<int>> sequences)
 
             ownHashes.push_back(ownHash);
             matchingHashes.push_back(matchingHash);
-#ifdef DEBUG
-            std::cout << "seq " << sId << ", pos " << i << ":\n";
-            std::cout << "matchingHash: {" << matchingHash.item1 << ", " << matchingHash.item2 << ", " << matchingHash.item3 << "}\n";
-            std::cout << "ownHash: {" << ownHash.item1 << ", " << ownHash.item2 << ", " << ownHash.item3 << "}\n";
-#endif
-            // if (d.find(matchingHash) != d.end())
-            // {
-            //     for (int matchingSeqId : d[matchingHash])
-            //     {
-            //         std::cout << matchingSeqId << ' ' << sId << '\n';
-            //     }
-            // }
-
-            // if (d.find(ownHash) == d.end())
-            //     d[ownHash] = std::vector<int>({sId});
-            // else
-            //     d[ownHash].push_back(sId);
         }
         sId++;
     }
@@ -125,7 +109,6 @@ void hammingOne(std::vector<std::vector<int>> sequences)
         auto iters = d.equal_range(matchingHashes[i]);
         if (iters.first == d.end() && iters.second == d.end())
         {
-            // std::cout << "not found\n";
             continue;
         }
 

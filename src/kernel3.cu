@@ -5,7 +5,8 @@
 #include "HashTableCpu.h"
 
 constexpr size_t P = 31;
-constexpr size_t M = 1e9 + 9;
+constexpr size_t M1 = 4757501900887;
+constexpr size_t M2 = 3348549226339;
 
 #define imin(a, b) (b)
 #define PRINTF_FIFO_SIZE (long long int)1e15
@@ -22,8 +23,8 @@ __device__ void computePrefixHashes(int *sequence, int seqLength, size_t *prefix
 
     for (int i = 0; i < seqLength; i++)
     {
-        hashValue = (hashValue + (size_t(sequence[i]) + 1) * pPow) % M;
-        pPow = (pPow * P) % M;
+        hashValue = (hashValue + (size_t(sequence[i]) + 1) * pPow) % M1;
+        pPow = (pPow * P) % M1;
 
         prefixHashes[i] = hashValue;
     }
@@ -36,8 +37,8 @@ __device__ void computeSuffixHashes(int *sequence, int seqLength, size_t *suffix
 
     for (int i = 0; i < seqLength; i++)
     {
-        hashValue = (hashValue + (size_t(sequence[seqLength - i - 1]) + 1) * pPow) % M;
-        pPow = (pPow * P) % M;
+        hashValue = (hashValue + (size_t(sequence[seqLength - i - 1]) + 1) * pPow) % M2;
+        pPow = (pPow * P) % M2;
 
         suffixHashes[i] = hashValue;
     }
@@ -143,8 +144,6 @@ int main(int argc, char **argv)
     std::string pathToMetadata(argv[1]);
     std::string pathToData(argv[2]);
     const double loadFactor = std::stod(argv[3]);
-
-    // const int HASH_ENTRIES = std::stoi(argv[3]);
 
     int numOfSequences, seqLength;
     readMetadataFile(pathToMetadata, numOfSequences, seqLength);
