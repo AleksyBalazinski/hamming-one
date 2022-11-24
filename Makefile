@@ -7,7 +7,7 @@ endif
 all: hamming hammingcpu bruteforcecpu generator compareResults
 
 hamming:
-	nvcc -ccbin $(CCBIN) ./src/kernel.cu ./src/Utils.cu -o ./bin/$@ -I ./include
+	nvcc -ccbin $(CCBIN) -O3 ./src/kernel.cu ./src/Utils.cu -o ./bin/$@ -I ./include
 
 hamming2:
 	nvcc -ccbin $(CCBIN) -O3 ./src/kernel2.cu ./src/Utils.cu -o ./bin/$@ -I ./include

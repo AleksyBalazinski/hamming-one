@@ -111,12 +111,14 @@ int main(int argc, char **argv)
 
     std::string pathToMetadata(argv[1]);
     std::string pathToData(argv[2]);
-    const int HASH_ENTRIES = std::stoi(argv[3]);
+    const double loadFactor = std::stod(argv[3]);
 
     int numOfSequences, seqLength;
     readMetadataFile(pathToMetadata, numOfSequences, seqLength);
 
     size_t totalLen = numOfSequences * seqLength;
+    // const size_t HASH_ENTRIES = totalLen / loadFactor;
+    const size_t HASH_ENTRIES = 2048;
     int *sequences = new int[totalLen];
     readDataFromFile(pathToData, sequences, numOfSequences, seqLength);
 

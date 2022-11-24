@@ -7,9 +7,8 @@ class CudaLock
 public:
 	CudaLock()
 	{
-		int state = 0;
 		cudaMalloc((void **)&mutex, sizeof(int));
-		cudaMemcpy(mutex, &state, sizeof(int), cudaMemcpyHostToDevice);
+		cudaMemset(mutex, 0, sizeof(int));
 	}
 	__device__ void lock()
 	{
@@ -21,6 +20,10 @@ public:
 	{
 		__threadfence();
 		atomicExch(mutex, 0);
-		//__threadfence();
+	}
+
+	~CudaLock()
+	{
+		cudaFree(mutex);
 	}
 };

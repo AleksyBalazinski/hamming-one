@@ -22,6 +22,12 @@ struct TripleHash
 {
     __host__ __device__ size_t operator()(Triple<T1, T2, T3> triple) const
     {
-        return triple.item1 ^ triple.item2 ^ triple.item3;
+        const unsigned char *p = reinterpret_cast<const unsigned char *>(&triple);
+        size_t h = 2166136261ull;
+
+        for (unsigned int i = 0; i < sizeof(triple); ++i)
+            h = (h * 16777619) ^ p[i];
+
+        return h;
     }
 };

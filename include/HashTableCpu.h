@@ -35,11 +35,11 @@ public: // for now
         return entries[hashValue];
     }
 
-    ~TableCpu()
-    {
-        delete[] entries;
-        delete[] pool;
-    }
+    // ~TableCpu()
+    // {
+    //     delete[] entries;
+    //     delete[] pool;
+    // }
 };
 
 template <class Key, class Hash>

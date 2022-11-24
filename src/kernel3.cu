@@ -81,24 +81,30 @@ __global__ void getHashes(int *sequences, int numOfSequences, int seqLength, siz
     }
 }
 
-// template <class Key, class T, class Hash>
-// __global__ void copyEntriesToDevice(TableCpu<Key, T, Hash> table, Entry<Key, T> **dev_entries, Entry<Key, T> *dev_pool, int totalLen)
-// {
-//     for (int i = 0; i < table.count; i++)
-//     {
-//         if (dev_entries[i] != nullptr)
-//         {
-//             dev_entries[i] = (Entry<Key, T> *)((size_t)dev_entries[i] - (size_t)table.pool + (size_t)dev_pool);
-//         }
-//     }
-//     for (int i = 0; i < table.elements; i++)
-//     {
-//         if (dev_pool[i].next != nullptr)
-//         {
-//             dev_pool[i].next = (Entry<Key, T> *)((size_t)dev_pool[i].next - (size_t)table.pool + (size_t)dev_pool);
-//         }
-//     }
-// }
+template <class Key, class T, class Hash>
+__global__ void copyEntriesToDevice(TableCpu<Key, T, Hash> table, Entry<Key, T> **dev_entries, Entry<Key, T> *dev_pool)
+{
+    int entryId = threadIdx.x + blockDim.x * blockIdx.x; // one thread per entry
+    if (entryId > table.count - 1)
+        return;
+
+    if (dev_entries[entryId] != nullptr)
+    {
+        dev_entries[entryId] = (Entry<Key, T> *)((size_t)dev_entries[entryId] - (size_t)table.pool + (size_t)dev_pool);
+    }
+}
+
+template <class Key, class T, class Hash>
+__global__ void copyElementsToDevice(TableCpu<Key, T, Hash> table, Entry<Key, T> *dev_pool)
+{
+    int elementId = threadIdx.x + blockDim.x * blockIdx.x; // one thread per element
+    if (elementId > table.elements - 1)
+        return;
+    if (dev_pool[elementId].next != nullptr)
+    {
+        dev_pool[elementId].next = (Entry<Key, T> *)((size_t)dev_pool[elementId].next - (size_t)table.pool + (size_t)dev_pool);
+    }
+}
 
 template <class Key, class T, class Hash>
 __global__ void findHammingOnePairs(Entry<Key, T> **entries, int count, Hash hasher, Triple<size_t, size_t, int> *matchingHashes, int numOfSequences, int seqLength)
@@ -149,7 +155,7 @@ int main(int argc, char **argv)
     readMetadataFile(pathToMetadata, numOfSequences, seqLength);
 
     size_t totalLen = numOfSequences * seqLength;
-    const int HASH_ENTRIES = totalLen / loadFactor;
+    const size_t HASH_ENTRIES = totalLen / loadFactor;
     int *sequences = new int[totalLen];
     readDataFromFile(pathToData, sequences, numOfSequences, seqLength);
 
@@ -175,32 +181,21 @@ int main(int argc, char **argv)
 
     addToTable(ownHashes, table, seqLength, numOfSequences);
 
-#ifdef DEBUG
-    for (int i = 0; i < HASH_ENTRIES; i++)
-    {
-        printf("bucket %d:", i);
-        Entry<Triple<size_t, size_t, int>, int> *cur = table.entries[i];
-        while (cur != nullptr)
-        {
-            printf("(%llu %llu %d) -> %d, ", cur->key.item1, cur->key.item2, cur->key.item3, cur->value);
-            cur = cur->next;
-        }
-        printf("\n");
-    }
-#endif
     // copy entries to device
-    // Entry<Triple<size_t, size_t, int>, int> **dev_entries;
-    // Entry<Triple<size_t, size_t, int>, int> *dev_pool;
-    // cudaMalloc(&dev_entries, table.count * sizeof(Entry<Triple<size_t, size_t, int>, int> *));
-    // cudaMalloc(&dev_pool, table.elements * sizeof(Entry<Triple<size_t, size_t, int>, int>));
+    Entry<Triple<size_t, size_t, int>, int> **dev_entries;
+    Entry<Triple<size_t, size_t, int>, int> *dev_pool;
+    cudaMalloc(&dev_entries, table.count * sizeof(Entry<Triple<size_t, size_t, int>, int> *));
+    cudaMemset(dev_entries, 0, table.count * sizeof(Entry<Triple<size_t, size_t, int>, int> *));
+    cudaMalloc(&dev_pool, table.elements * sizeof(Entry<Triple<size_t, size_t, int>, int>));
 
-    // cudaMemcpy(dev_entries, table.entries, table.count * sizeof(Entry<Triple<size_t, size_t, int>, int> *), cudaMemcpyHostToDevice);
-    // cudaMemcpy(dev_pool, table.pool, table.elements * sizeof(Entry<Triple<size_t, size_t, int>, int>), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_entries, table.entries, table.count * sizeof(Entry<Triple<size_t, size_t, int>, int> *), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_pool, table.pool, table.elements * sizeof(Entry<Triple<size_t, size_t, int>, int>), cudaMemcpyHostToDevice);
 
-    // copyEntriesToDevice<<<1, 1>>>(table, dev_entries, dev_pool, totalLen);
+    copyEntriesToDevice<<<blocksNum(HASH_ENTRIES, 256), 256>>>(table, dev_entries, dev_pool);
+    copyElementsToDevice<<<blocksNum(table.elements, 256), 256>>>(table, dev_pool);
 
-    // findHammingOnePairs<<<blocksNum(totalLen, 256), 256>>>(dev_entries, HASH_ENTRIES, TripleHash<size_t, size_t, int>(), dev_matchingHashes, numOfSequences, seqLength);
-    Triple<size_t, size_t, int> *matchingHashes = new Triple<size_t, size_t, int>[totalLen];
-    cudaMemcpy(matchingHashes, dev_matchingHashes, totalLen * sizeof(Triple<size_t, size_t, int>), cudaMemcpyDeviceToHost);
-    findHammingOnePairs(table, matchingHashes, numOfSequences, seqLength);
+    findHammingOnePairs<<<blocksNum(totalLen, 256), 256>>>(dev_entries, HASH_ENTRIES, TripleHash<size_t, size_t, int>(), dev_matchingHashes, numOfSequences, seqLength);
+    // Triple<size_t, size_t, int> *matchingHashes = new Triple<size_t, size_t, int>[totalLen];
+    // cudaMemcpy(matchingHashes, dev_matchingHashes, totalLen * sizeof(Triple<size_t, size_t, int>), cudaMemcpyDeviceToHost);
+    // findHammingOnePairs(table, matchingHashes, numOfSequences, seqLength);
 }
