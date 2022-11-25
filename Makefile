@@ -32,3 +32,6 @@ generator:
 
 compareResults:
 	g++ ./test/compareResults.cpp -o ./bin/$@
+
+test_bcht:
+	nvcc -gencode arch=compute_75,code=sm_75 --std c++17 --extended-lambda --expt-relaxed-constexpr -ccbin $(CCBIN) ./test/test_bcht.cu -o ./bin/$@ -I ./include
