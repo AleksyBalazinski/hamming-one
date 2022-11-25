@@ -4,6 +4,8 @@ else
 	CCBIN=g++
 endif
 
+CFLAGS=-Xcompiler=/std:c++17 -gencode arch=compute_75,code=sm_75 --std c++17 --expt-extended-lambda -extended-lambda --expt-relaxed-constexpr --forward-unknown-to-host-linker --forward-unknown-to-host-compiler
+
 all: hamming hammingcpu bruteforcecpu generator compareResults
 
 hamming:
@@ -34,4 +36,7 @@ compareResults:
 	g++ ./test/compareResults.cpp -o ./bin/$@
 
 test_bcht:
-	nvcc -gencode arch=compute_75,code=sm_75 --std c++17 --extended-lambda --expt-relaxed-constexpr -ccbin $(CCBIN) ./test/test_bcht.cu -o ./bin/$@ -I ./include
+	nvcc $(CFLAGS) -ccbin $(CCBIN) ./test/test_bcht.cu -o ./bin/$@ -I ./include
+
+example_bcht:
+	nvcc $(CFLAGS) -ccbin $(CCBIN) ./test/example_bcht.cu -o ./bin/$@ -I ./include
