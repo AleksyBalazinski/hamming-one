@@ -89,7 +89,7 @@ int main(int argc, char **argv)
     // const size_t HASH_ENTRIES = totalLen / loadFactor;
     const size_t HASH_ENTRIES = 2048;
     int *sequences = new int[totalLen];
-    readDataFromFile(pathToData, sequences, numOfSequences, seqLength);
+    readDataFile(pathToData, sequences, numOfSequences, seqLength);
 
     int *dev_sequences;
     cudaMalloc(&dev_sequences, totalLen * sizeof(int));
