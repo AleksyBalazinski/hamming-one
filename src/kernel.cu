@@ -7,11 +7,8 @@
 #include "common/cuda_allocator.hpp"
 #include "common/triple.cuh"
 #include "hash_table_sc/hash_table_sc.hpp"
+#include "hamming/rolling_hash.cuh"
 #include "Hash.h"
-
-constexpr size_t P = 31;
-constexpr size_t M1 = 4757501900887;
-constexpr size_t M2 = 3348549226339;
 
 //#define imin(a, b) ((a) < (b) ? (a) : (b))
 #define imin(a, b) (b)
@@ -20,34 +17,6 @@ constexpr size_t M2 = 3348549226339;
 int blocksNum(int threads, int threadsPerBlock)
 {
     return imin(32, (threads + threadsPerBlock - 1) / threadsPerBlock);
-}
-
-__device__ void computePrefixHashes(int *sequence, int seqLength, size_t *prefixHashes)
-{
-    size_t hashValue = 0;
-    size_t pPow = 1;
-
-    for (int i = 0; i < seqLength; i++)
-    {
-        hashValue = (hashValue + (size_t(sequence[i]) + 1) * pPow) % M1;
-        pPow = (pPow * P) % M1;
-
-        prefixHashes[i] = hashValue;
-    }
-}
-
-__device__ void computeSuffixHashes(int *sequence, int seqLength, size_t *suffixHashes)
-{
-    size_t hashValue = 0;
-    size_t pPow = 1;
-
-    for (int i = 0; i < seqLength; i++)
-    {
-        hashValue = (hashValue + (size_t(sequence[seqLength - i - 1]) + 1) * pPow) % M2;
-        pPow = (pPow * P) % M2;
-
-        suffixHashes[i] = hashValue;
-    }
 }
 
 __global__ void getHashes(int *sequences, int numOfSequences, int seqLength, size_t *prefixes, size_t *suffixes,
@@ -63,8 +32,8 @@ __global__ void getHashes(int *sequences, int numOfSequences, int seqLength, siz
     size_t *curSuffixes = suffixes + offset;
     Triple<size_t, size_t, int> *curMatchingHashes = matchingHashes + offset;
     Triple<size_t, size_t, int> *curOwnHashes = ownHasbes + offset;
-    computePrefixHashes(sequence, seqLength, curPrefixes);
-    computeSuffixHashes(sequence, seqLength, curSuffixes);
+    hamming::computePrefixHashes(sequence, seqLength, curPrefixes);
+    hamming::computeSuffixHashes(sequence, seqLength, curSuffixes);
 
     for (int i = 0; i < seqLength; i++)
     {
@@ -88,7 +57,7 @@ __global__ void getHashes(int *sequences, int numOfSequences, int seqLength, siz
 }
 
 template <class Key, class T, class Hash>
-__global__ void findHammingOnePairs(Table<Key, T, Hash, CudaAllocator> table, Triple<size_t, size_t, int> *matchingHashes, int numOfSequences, int seqLength)
+__global__ void findHammingOnePairs(HashTableSC<Key, T, Hash> table, Triple<size_t, size_t, int> *matchingHashes, int numOfSequences, int seqLength)
 {
     int elemId = threadIdx.x + blockDim.x * blockIdx.x;
     if (elemId > seqLength * numOfSequences - 1)
@@ -137,7 +106,7 @@ int main(int argc, char **argv)
 
     getHashes<<<blocksNum(numOfSequences, 256), 256>>>(dev_sequences, numOfSequences, seqLength, dev_prefixes, dev_suffixes, dev_matchingHashes, dev_ownHashes);
 
-    Table<Triple<size_t, size_t, int>, int, TripleHash<size_t, size_t, int>, CudaAllocator> table(HASH_ENTRIES, totalLen);
+    HashTableSC<Triple<size_t, size_t, int>, int, TripleHash<size_t, size_t, int>> table(HASH_ENTRIES, totalLen);
     CudaLock *lock = new CudaLock[HASH_ENTRIES];
     CudaLock *dev_lock;
 

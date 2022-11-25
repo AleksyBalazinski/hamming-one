@@ -4,24 +4,35 @@
 #include "detail/cuda_lock.hpp"
 #include "detail/entry.hpp"
 #include "common/cuda_allocator.hpp"
+#include "common/cuda_hash.cuh"
 
-template <class Key, class T, class Hash, template <class> class Allocator>
-class Table
+template <class Key, class T, class Hash, class Allocator = CudaAllocator<char>>
+struct HashTableSC
 {
-public: // for now
-    Hash hasher;
-    Allocator<Entry<Key, T>> entryAllocator;
-    Allocator<Entry<Key, T> *> entryPtrAllocator;
+    using value_type = Entry<Key, T>;
+    using key_type = Key;
+    using mapped_type = T;
+    using allocator_type = Allocator;
+    using hasher = Hash;
+    using size_type = std::size_t;
+
+    using pool_allocator_type =
+        typename std::allocator_traits<Allocator>::rebind_alloc<value_type>;
+    using entry_ptr_allocator_type =
+        typename std::allocator_traits<Allocator>::rebind_alloc<value_type *>;
+
+    hasher hf;
+    pool_allocator_type entryAllocator;
+    entry_ptr_allocator_type entryPtrAllocator;
 
     size_t count;
     size_t elements;
-    Entry<Key, T> **entries;
-    Entry<Key, T> *pool;
+    value_type **entries;
+    value_type *pool;
 
-public:
-    Table() {}
+    HashTableSC() {}
 
-    Table(int nb_entries, int nb_elements)
+    HashTableSC(int nb_entries, int nb_elements)
     {
         count = nb_entries;
         elements = nb_elements;
@@ -33,7 +44,7 @@ public:
 
     __host__ __device__ bool find(Key key, T &out)
     {
-        size_t hashValue = hasher(key) % count;
+        size_t hashValue = hf(key) % count;
         Entry<Key, T> *cur = entries[hashValue];
         while (cur != nullptr && cur->key != key)
         {
@@ -49,7 +60,7 @@ public:
 
     __host__ __device__ Entry<Key, T> *getBucket(Key key)
     {
-        size_t hashValue = hasher(key) % count;
+        size_t hashValue = hf(key) % count;
 
         return entries[hashValue];
     }
@@ -61,8 +72,8 @@ public:
     }
 };
 
-template <class Key, class T, class DevHash, template <class> class DevAllocator, class HostHash, template <class> class HostAllocator>
-void copyTableToHost(const Table<Key, T, DevHash, DevAllocator> &table, Table<Key, T, HostHash, HostAllocator> &hostTable)
+template <class Key, class T, class DevHash, class DevAllocator, class HostHash, class HostAllocator>
+void copyTableToHost(const HashTableSC<Key, T, DevHash, DevAllocator> &table, HashTableSC<Key, T, HostHash, HostAllocator> &hostTable)
 {
     cudaMemcpy(hostTable.entries, table.entries, table.count * sizeof(Entry<Key, T> *), cudaMemcpyDeviceToHost);
     cudaMemcpy(hostTable.pool, table.pool, table.elements * sizeof(Entry<Key, T>), cudaMemcpyDeviceToHost);
@@ -79,8 +90,8 @@ void copyTableToHost(const Table<Key, T, DevHash, DevAllocator> &table, Table<Ke
     }
 }
 
-template <class Key, class T, class Hash, template <class> class Allocator>
-__global__ void addToTable(Key *keys, T *values, Table<Key, T, Hash, Allocator> table, CudaLock *lock)
+template <class Key, class T, class Hash, class Allocator>
+__global__ void addToTable(Key *keys, T *values, HashTableSC<Key, T, Hash, Allocator> table, CudaLock *lock)
 {
     int tid = threadIdx.x + blockDim.x * blockIdx.x;
     int stride = blockDim.x * gridDim.x;
@@ -88,7 +99,7 @@ __global__ void addToTable(Key *keys, T *values, Table<Key, T, Hash, Allocator> 
     {
         Key key = keys[tid];
         T value = values[tid];
-        size_t hashValue = table.hasher(key) % table.count;
+        size_t hashValue = table.hf(key) % table.count;
         for (int i = 0; i < 32; i++)
         {
             if (i == tid % 32)
@@ -106,8 +117,8 @@ __global__ void addToTable(Key *keys, T *values, Table<Key, T, Hash, Allocator> 
     }
 }
 
-template <class Key, class Hash, template <class> class Allocator>
-__global__ void addToTable(Key *keys, Table<Key, int, Hash, Allocator> table, CudaLock *lock, int seqLength)
+template <class Key, class Hash, class Allocator>
+__global__ void addToTable(Key *keys, HashTableSC<Key, int, Hash, Allocator> table, CudaLock *lock, int seqLength)
 {
     int tid = threadIdx.x + blockDim.x * blockIdx.x;
     int stride = blockDim.x * gridDim.x;
@@ -117,7 +128,7 @@ __global__ void addToTable(Key *keys, Table<Key, int, Hash, Allocator> table, Cu
     {
         Key key = keys[tid];
         int value = tid / seqLength;
-        size_t hashValue = table.hasher(key) % table.count;
+        size_t hashValue = table.hf(key) % table.count;
         for (int i = 0; i < 32; i++)
         {
             if (i == tid % 32)

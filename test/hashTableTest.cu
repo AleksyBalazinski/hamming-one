@@ -43,7 +43,7 @@ void hashTableTest1()
     cudaMemcpy(dev_keys, buffer, N * sizeof(Key), cudaMemcpyHostToDevice);
     cudaMemcpy(dev_values, values, N * sizeof(Val), cudaMemcpyHostToDevice);
 
-    Table<Key, Val, IntegralHash<Key>, CudaAllocator> table(HASH_ENTRIES, N);
+    HashTableSC<Key, Val, IntegralHash<Key>, CudaAllocator> table(HASH_ENTRIES, N);
 
     CudaLock lock[HASH_ENTRIES];
     CudaLock *dev_lock;
@@ -53,7 +53,7 @@ void hashTableTest1()
 
     addToTable<<<blocksPerGrid, threadsPerBlock>>>(dev_keys, dev_values, table, dev_lock);
 
-    Table<Key, Val, IntegralHash<Key>, std::allocator> hostTable(HASH_ENTRIES, N);
+    HashTableSC<Key, Val, IntegralHash<Key>, std::allocator> hostTable(HASH_ENTRIES, N);
 
     copyTableToHost(table, hostTable);
 
@@ -77,7 +77,7 @@ void hashTableTest1()
     free(buffer);
 }
 
-__global__ void parallelQuery(Table<Pair<int, int>, int, PairHash<int, int>, CudaAllocator> table, Pair<int, int> *keys, int keysCnt)
+__global__ void parallelQuery(HashTableSC<Pair<int, int>, int, PairHash<int, int>, CudaAllocator> table, Pair<int, int> *keys, int keysCnt)
 {
     int tid = threadIdx.x + blockIdx.x * gridDim.x;
     if (tid >= keysCnt)
@@ -95,7 +95,7 @@ __global__ void parallelQuery(Table<Pair<int, int>, int, PairHash<int, int>, Cud
     printf("Key (%d, %d) maps to %d\n", key.first, key.second, value);
 }
 
-void sequentialQuery(Table<Pair<int, int>, int, PairHash<int, int>, std::allocator> table, Pair<int, int> *keys, int keysCnt)
+void sequentialQuery(HashTableSC<Pair<int, int>, int, PairHash<int, int>, std::allocator> table, Pair<int, int> *keys, int keysCnt)
 {
     for (int i = 0; i < keysCnt; i++)
     {
@@ -138,7 +138,7 @@ void hashTableTest2()
     cudaMemcpy(dev_keys, keys, N * sizeof(Pair<int, int>), cudaMemcpyHostToDevice);
     cudaMemcpy(dev_values, values, N * sizeof(int), cudaMemcpyHostToDevice);
 
-    Table<Pair<int, int>, int, PairHash<int, int>, CudaAllocator> table(HASH_ENTRIES, N);
+    HashTableSC<Pair<int, int>, int, PairHash<int, int>, CudaAllocator> table(HASH_ENTRIES, N);
 
     CudaLock lock[HASH_ENTRIES];
     CudaLock *dev_lock;
@@ -153,7 +153,7 @@ void hashTableTest2()
     parallelQuery<<<blocksPerGrid, threadsPerBlock>>>(table, dev_keys, N);
 
     // ... as well as sequentially
-    Table<Pair<int, int>, int, PairHash<int, int>, std::allocator> hostTable(HASH_ENTRIES, N);
+    HashTableSC<Pair<int, int>, int, PairHash<int, int>, std::allocator> hostTable(HASH_ENTRIES, N);
     copyTableToHost(table, hostTable);
     printf("*** sequential query ***\n");
     sequentialQuery(hostTable, keys, N);
