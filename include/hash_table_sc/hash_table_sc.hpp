@@ -1,34 +1,13 @@
 #pragma once
 
 #include <functional>
-#include "CudaLock.h"
-#include "CudaAllocator.h"
-
-template <class Key, class T>
-struct Entry
-{
-    Key key;
-    T value;
-    Entry<Key, T> *next;
-};
-
-template <class Key, class T, class Hash, template <class> class Allocator>
-class Table;
-
-template <class Key, class T, class DevHash, template <class> class DevAllocator, class HostHash, template <class> class HostAllocator>
-void copyTableToHost(const Table<Key, T, DevHash, DevAllocator> &table, Table<Key, T, HostHash, HostAllocator> &hostTable);
-
-template <class Key, class T, class Hash, template <class> class Allocator>
-__global__ void addToTable(Key *keys, T *values, Table<Key, T, Hash, Allocator> table, CudaLock *lock);
+#include "detail/cuda_lock.hpp"
+#include "detail/entry.hpp"
+#include "common/cuda_allocator.hpp"
 
 template <class Key, class T, class Hash, template <class> class Allocator>
 class Table
 {
-    // template <class K, class U, class DevHash, template <class> class DevAllocator, class HostHash, template <class> class HostAllocator>
-    // friend void copyTableToHost<Key, T, DevHash, DevAllocator, HostHash, HostAllocator>(const Table<Key, T, DevHash, DevAllocator> &table, Table<Key, T, HostHash, HostAllocator> &hostTable);
-
-    friend __global__ void addToTable<>(Key *keys, T *values, Table<Key, T, Hash, Allocator> table, CudaLock *lock);
-
 public: // for now
     Hash hasher;
     Allocator<Entry<Key, T>> entryAllocator;
@@ -134,24 +113,24 @@ __global__ void addToTable(Key *keys, Table<Key, int, Hash, Allocator> table, Cu
     int stride = blockDim.x * gridDim.x;
     if (tid > table.elements - 1)
         return;
-    // while (tid < table.elements)
-    //{
-    Key key = keys[tid];
-    int value = tid / seqLength;
-    size_t hashValue = table.hasher(key) % table.count;
-    for (int i = 0; i < 32; i++)
+    while (tid < table.elements)
     {
-        if (i == tid % 32)
+        Key key = keys[tid];
+        int value = tid / seqLength;
+        size_t hashValue = table.hasher(key) % table.count;
+        for (int i = 0; i < 32; i++)
         {
-            Entry<Key, int> *location = &(table.pool[tid]);
-            location->key = key;
-            location->value = value;
-            lock[hashValue].lock();
-            location->next = table.entries[hashValue];
-            table.entries[hashValue] = location;
-            lock[hashValue].unlock();
+            if (i == tid % 32)
+            {
+                Entry<Key, int> *location = &(table.pool[tid]);
+                location->key = key;
+                location->value = value;
+                lock[hashValue].lock();
+                location->next = table.entries[hashValue];
+                table.entries[hashValue] = location;
+                lock[hashValue].unlock();
+            }
         }
+        tid += stride;
     }
-    tid += stride;
-    //}
 }

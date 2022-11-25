@@ -3,11 +3,11 @@
 #include "triple.cuh"
 
 template <typename Key>
-struct universal_hash
+struct CudaHash
 {
     using key_type = Key;
     using result_type = Key;
-    __host__ __device__ constexpr universal_hash(uint32_t hash_x, uint32_t hash_y)
+    __host__ __device__ constexpr CudaHash(uint32_t hash_x, uint32_t hash_y)
         : hash_x_(hash_x), hash_y_(hash_y) {}
 
     constexpr result_type __host__ __device__ operator()(const key_type &key) const
@@ -15,12 +15,12 @@ struct universal_hash
         return (((hash_x_ ^ key) + hash_y_) % prime_divisor);
     }
 
-    universal_hash(const universal_hash &) = default;
-    universal_hash() = default;
-    universal_hash(universal_hash &&) = default;
-    universal_hash &operator=(universal_hash const &) = default;
-    universal_hash &operator=(universal_hash &&) = default;
-    ~universal_hash() = default;
+    CudaHash(const CudaHash &) = default;
+    CudaHash() = default;
+    CudaHash(CudaHash &&) = default;
+    CudaHash &operator=(CudaHash const &) = default;
+    CudaHash &operator=(CudaHash &&) = default;
+    ~CudaHash() = default;
 
     static constexpr uint32_t prime_divisor = 4294967291u;
 
@@ -30,14 +30,14 @@ private:
 };
 
 template <typename T1, typename T2, typename T3>
-struct universal_hash<triple<T1, T2, T3>>
+struct CudaHash<triple<T1, T2, T3>>
 {
     using key_type = triple<T1, T2, T3>;
     using result_type = size_t;
-    __host__ __device__ constexpr universal_hash(uint32_t hash_x,
-                                                 uint32_t hash_y,
-                                                 uint32_t hash_z,
-                                                 uint32_t hash_w)
+    __host__ __device__ constexpr CudaHash(uint32_t hash_x,
+                                           uint32_t hash_y,
+                                           uint32_t hash_z,
+                                           uint32_t hash_w)
         : hash_x_{hash_x}, hash_y_{hash_y_}, hash_z_{hash_z}, hash_w_{hash_w} {}
 
     constexpr result_type __host__ __device__ operator()(const key_type &key) const
@@ -46,12 +46,12 @@ struct universal_hash<triple<T1, T2, T3>>
                 prime_divisor);
     }
 
-    universal_hash(const universal_hash &) = default;
-    universal_hash() = default;
-    universal_hash(universal_hash &&) = default;
-    universal_hash &operator=(universal_hash const &) = default;
-    universal_hash &operator=(universal_hash &&) = default;
-    ~universal_hash() = default;
+    CudaHash(const CudaHash &) = default;
+    CudaHash() = default;
+    CudaHash(CudaHash &&) = default;
+    CudaHash &operator=(CudaHash const &) = default;
+    CudaHash &operator=(CudaHash &&) = default;
+    ~CudaHash() = default;
 
     static constexpr uint32_t prime_divisor = 4294967291u;
 
@@ -78,9 +78,9 @@ struct hf_initializer
 };
 
 template <typename RNG, typename T1, typename T2, typename T3>
-struct hf_initializer<universal_hash<triple<T1, T2, T3>>, RNG>
+struct hf_initializer<CudaHash<triple<T1, T2, T3>>, RNG>
 {
-    using Hash = universal_hash<triple<T1, T2, T3>>;
+    using Hash = CudaHash<triple<T1, T2, T3>>;
     Hash operator()(RNG &rng)
     {
         uint32_t x = rng() % Hash::prime_divisor;

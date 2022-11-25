@@ -1,14 +1,14 @@
 #pragma once
 
 #include <cuda/atomic>
-#include "detail/cuda_allocator.h"
-#include "detail/pair.cuh"
-#include "detail/cuda_helpers.cuh"
-#include "detail/hash_functions.cuh"
-#include "detail/kernels.cuh"
+#include "common/cuda_allocator.hpp"
+#include "common/pair.cuh"
+#include "common/cuda_helpers.cuh"
+#include "common/cuda_hash.cuh"
+#include "detail/device_side.cuh"
 #include <memory>
 
-template <class Key, class T, class Hash = universal_hash<Key>, class Allocator = CudaAllocator<char>, int B = 16>
+template <class Key, class T, class Hash = CudaHash<Key>, class Allocator = CudaAllocator<char>>
 struct HashTableBC
 {
     using value_type = Pair<Key, T>;
@@ -25,7 +25,7 @@ struct HashTableBC
     using size_type_allocator_type =
         typename std::allocator_traits<Allocator>::rebind_alloc<size_type>;
 
-    static constexpr auto bucket_size = B;
+    static constexpr auto bucket_size = 16;
 
     HashTableBC(std::size_t capacity,
                 Key sentinel_key,
@@ -46,15 +46,12 @@ struct HashTableBC
     template <typename tile_type>
     __device__ mapped_type find(key_type const &key, tile_type const &tile);
 
-    template <typename RNG>
-    void randomize_hash_functions(RNG &rng);
-
 private:
     template <typename InputIt, typename HashMap>
-    friend __global__ void kernels::tiled_insert_kernel(InputIt, InputIt, HashMap);
+    friend __global__ void detail::device_side::cooperativeInsert(InputIt, InputIt, HashMap);
 
     template <typename InputIt, typename OutputIt, typename HashMap>
-    friend __global__ void kernels::tiled_find_kernel(InputIt, InputIt, OutputIt, HashMap);
+    friend __global__ void detail::device_side::cooperativeFind(InputIt, InputIt, OutputIt, HashMap);
 
     std::size_t capacity_;
     key_type sentinel_key_{};

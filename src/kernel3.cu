@@ -1,6 +1,6 @@
 #include <string>
 #include "Tuple.h"
-#include "Utils.h"
+#include "utils.h"
 #include "Hash.h"
 #include "HashTableCpu.h"
 

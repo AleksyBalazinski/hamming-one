@@ -3,7 +3,7 @@
 #include <thrust/sort.h>
 #include <iostream>
 
-#include "Utils.h"
+#include "utils.h"
 
 constexpr size_t P = 31;
 constexpr size_t M = 1e9 + 9;

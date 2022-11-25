@@ -9,13 +9,13 @@ CFLAGS=-Xcompiler=/std:c++17 -gencode arch=compute_75,code=sm_75 --std c++17 --e
 all: hamming hammingcpu bruteforcecpu generator compareResults
 
 hamming:
-	nvcc -ccbin $(CCBIN) -O3 ./src/kernel.cu ./src/Utils.cu -o ./bin/$@ -I ./include
+	nvcc -ccbin $(CCBIN) -O3 ./src/kernel.cu ./src/utils.cu -o ./bin/$@ -I ./include
 
 hamming2:
-	nvcc -ccbin $(CCBIN) -O3 ./src/kernel2.cu ./src/Utils.cu -o ./bin/$@ -I ./include
+	nvcc -ccbin $(CCBIN) -O3 ./src/kernel2.cu ./src/utils.cu -o ./bin/$@ -I ./include
 
 hamming3:
-	nvcc -ccbin $(CCBIN) -O3 ./src/kernel3.cu ./src/Utils.cu -o ./bin/$@ -I ./include
+	nvcc -ccbin $(CCBIN) -O3 ./src/kernel3.cu ./src/utils.cu -o ./bin/$@ -I ./include
 
 hashTableTest:
 	nvcc -ccbin $(CCBIN) ./test/hashTableTest.cu -o ./bin/$@ -I ./include

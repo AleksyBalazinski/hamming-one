@@ -1,9 +1,9 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
-#include "hash_table_bc.hpp"
+#include "hash_table_bc/hash_table_bc.hpp"
 #include <limits>
 #include <vector>
-#include "detail/triple.cuh"
+#include "hash_table_bc/detail/triple.cuh"
 
 int main()
 {

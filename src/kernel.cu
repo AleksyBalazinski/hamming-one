@@ -3,15 +3,15 @@
 #include <string>
 #include <iostream>
 
-#include "Array.h"
-#include "Utils.h"
-#include "CudaAllocator.h"
-#include "Tuple.h"
-#include "HashTable.h"
+#include "utils.h"
+#include "common/cuda_allocator.hpp"
+#include "common/triple.cuh"
+#include "hash_table_sc/hash_table_sc.hpp"
 #include "Hash.h"
 
 constexpr size_t P = 31;
-constexpr size_t M = 1e9 + 9;
+constexpr size_t M1 = 4757501900887;
+constexpr size_t M2 = 3348549226339;
 
 //#define imin(a, b) ((a) < (b) ? (a) : (b))
 #define imin(a, b) (b)
@@ -29,8 +29,8 @@ __device__ void computePrefixHashes(int *sequence, int seqLength, size_t *prefix
 
     for (int i = 0; i < seqLength; i++)
     {
-        hashValue = (hashValue + (size_t(sequence[i]) + 1) * pPow) % M;
-        pPow = (pPow * P) % M;
+        hashValue = (hashValue + (size_t(sequence[i]) + 1) * pPow) % M1;
+        pPow = (pPow * P) % M1;
 
         prefixHashes[i] = hashValue;
     }
@@ -43,8 +43,8 @@ __device__ void computeSuffixHashes(int *sequence, int seqLength, size_t *suffix
 
     for (int i = 0; i < seqLength; i++)
     {
-        hashValue = (hashValue + (size_t(sequence[seqLength - i - 1]) + 1) * pPow) % M;
-        pPow = (pPow * P) % M;
+        hashValue = (hashValue + (size_t(sequence[seqLength - i - 1]) + 1) * pPow) % M2;
+        pPow = (pPow * P) % M2;
 
         suffixHashes[i] = hashValue;
     }

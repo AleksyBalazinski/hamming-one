@@ -1,9 +1,9 @@
 #pragma once
 
-#include "detail/cuda_helpers.cuh"
+#include "cuda_helpers.cuh"
 
 template <typename T>
-struct cuda_deleter
+struct CudaDeleter
 {
 	void operator()(T *p) { CUDA_TRY(cudaFree(p)); }
 };
@@ -38,8 +38,7 @@ public:
 		return static_cast<T *>(p);
 	}
 
-	void
-	deallocate(T *p, size_t)
+	void deallocate(T *p, size_t)
 	{
 		CUDA_TRY(cudaFree(p));
 	}

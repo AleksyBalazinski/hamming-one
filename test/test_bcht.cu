@@ -17,7 +17,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include <thrust/sequence.h>
-#include "hash_table_bc.hpp"
+#include "hash_table_bc/hash_table_bc.hpp"
 #include <cmd.hpp>
 #include <gpu_timer.hpp>
 #include <limits>

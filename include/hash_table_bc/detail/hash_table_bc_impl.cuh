@@ -4,14 +4,14 @@
 #include <iterator>
 #include <thrust/fill.h>
 #include "detail/bucket.cuh"
-#include "detail/kernels.cuh"
+#include "detail/device_side.cuh"
 #include "detail/rng.hpp"
 
-template <class Key, class T, class Hash, class Allocator, int B>
-HashTableBC<Key, T, Hash, Allocator, B>::HashTableBC(std::size_t capacity,
-                                                     Key empty_key_sentinel,
-                                                     T empty_value_sentinel,
-                                                     Allocator const &allocator)
+template <class Key, class T, class Hash, class Allocator>
+HashTableBC<Key, T, Hash, Allocator>::HashTableBC(std::size_t capacity,
+                                                  Key empty_key_sentinel,
+                                                  T empty_value_sentinel,
+                                                  Allocator const &allocator)
     : capacity_{std::max(capacity, size_t{1})},
       sentinel_key_{empty_key_sentinel},
       sentinel_value_{empty_value_sentinel},
@@ -29,11 +29,11 @@ HashTableBC<Key, T, Hash, Allocator, B>::HashTableBC(std::size_t capacity,
     d_table_ = std::allocator_traits<atomic_pair_allocator_type>::allocate(
         atomic_pairs_allocator_, capacity_);
     table_ = std::shared_ptr<atomic_pair_type>(d_table_,
-                                               cuda_deleter<atomic_pair_type>());
+                                               CudaDeleter<atomic_pair_type>());
 
     d_build_success_ =
         std::allocator_traits<pool_allocator_type>::allocate(pool_allocator_, 1);
-    build_success_ = std::shared_ptr<bool>(d_build_success_, cuda_deleter<bool>());
+    build_success_ = std::shared_ptr<bool>(d_build_success_, CudaDeleter<bool>());
 
     value_type empty_pair{sentinel_key_, sentinel_value_};
     thrust::fill(thrust::device, d_table_, d_table_ + capacity_, empty_pair);
@@ -53,18 +53,18 @@ HashTableBC<Key, T, Hash, Allocator, B>::HashTableBC(std::size_t capacity,
         cudaMemcpy(d_build_success_, &success, sizeof(bool), cudaMemcpyHostToDevice));
 }
 
-template <class Key, class T, class Hash, class Allocator, int B>
-HashTableBC<Key, T, Hash, Allocator, B>::~HashTableBC() {}
+template <class Key, class T, class Hash, class Allocator>
+HashTableBC<Key, T, Hash, Allocator>::~HashTableBC() {}
 
-template <class Key, class T, class Hash, class Allocator, int B>
+template <class Key, class T, class Hash, class Allocator>
 template <class InputIt>
-bool HashTableBC<Key, T, Hash, Allocator, B>::insert(InputIt first, InputIt last, cudaStream_t stream)
+bool HashTableBC<Key, T, Hash, Allocator>::insert(InputIt first, InputIt last, cudaStream_t stream)
 {
     const auto num_keys = std::distance(first, last);
 
     const uint32_t block_size = 128;
     const uint32_t num_blocks = (num_keys + block_size - 1) / block_size;
-    kernels::tiled_insert_kernel<<<num_blocks, block_size, 0, stream>>>(
+    detail::device_side::cooperativeInsert<<<num_blocks, block_size, 0, stream>>>(
         first, last, *this);
     bool success;
     CUDA_TRY(cudaMemcpyAsync(
@@ -72,35 +72,35 @@ bool HashTableBC<Key, T, Hash, Allocator, B>::insert(InputIt first, InputIt last
     return success;
 }
 
-template <class Key, class T, class Hash, class Allocator, int B>
+template <class Key, class T, class Hash, class Allocator>
 template <class InputIt, class OutputIt>
-void HashTableBC<Key, T, Hash, Allocator, B>::find(InputIt first, InputIt last, OutputIt output_begin, cudaStream_t stream)
+void HashTableBC<Key, T, Hash, Allocator>::find(InputIt first, InputIt last, OutputIt output_begin, cudaStream_t stream)
 {
     const auto num_keys = last - first;
     const uint32_t block_size = 128;
     const uint32_t num_blocks = (num_keys + block_size - 1) / block_size;
 
-    kernels::tiled_find_kernel<<<num_blocks, block_size, 0, stream>>>(
+    detail::device_side::cooperativeFind<<<num_blocks, block_size, 0, stream>>>(
         first, last, output_begin, *this);
 }
 
-template <class Key, class T, class Hash, class Allocator, int B>
+template <class Key, class T, class Hash, class Allocator>
 template <class TileType>
-__device__ bool HashTableBC<Key, T, Hash, Allocator, B>::insert(value_type const &pair,
-                                                                TileType const &tile)
+__device__ bool HashTableBC<Key, T, Hash, Allocator>::insert(value_type const &pair,
+                                                             TileType const &tile)
 {
-    mars_rng_32 rng; // TODO
     auto bucket_id = hf0_(pair.first) % num_buckets_;
     uint32_t cuckoo_counter = 0;
+    mars_rng_32 rng; // TODO
     auto lane_id = tile.thread_rank();
     const int elected_lane = 0;
     value_type sentinel_pair{sentinel_key_, sentinel_value_};
     value_type insertion_pair = pair;
-    using bucket_type = bucket<atomic_pair_type, value_type, TileType>;
+    using bucket_type = detail::Bucket<atomic_pair_type, value_type, TileType>;
     do
     {
         bucket_type cur_bucket(&d_table_[bucket_id * bucket_size], tile);
-        cur_bucket.load(cuda::memory_order_relaxed);
+        cur_bucket.load();
         int load = cur_bucket.compute_load(sentinel_pair);
 
         if (load != bucket_size)
@@ -110,11 +110,9 @@ __device__ bool HashTableBC<Key, T, Hash, Allocator, B>::insert(value_type const
             if (lane_id == elected_lane)
             {
                 cas_success =
-                    cur_bucket.strong_cas_at_location(insertion_pair,
-                                                      load,
-                                                      sentinel_pair,
-                                                      cuda::memory_order_relaxed,
-                                                      cuda::memory_order_relaxed);
+                    cur_bucket.casAtLocation(insertion_pair,
+                                             load,
+                                             sentinel_pair);
             }
             cas_success = tile.shfl(cas_success, elected_lane);
             if (cas_success)
@@ -132,8 +130,8 @@ __device__ bool HashTableBC<Key, T, Hash, Allocator, B>::insert(value_type const
             if (lane_id == elected_lane)
             {
                 auto random_location = rng() % bucket_size;
-                auto old_pair = cur_bucket.exch_at_location(
-                    insertion_pair, random_location, cuda::memory_order_relaxed);
+                auto old_pair = cur_bucket.exchAtLocation(
+                    insertion_pair, random_location);
 
                 auto bucket0 = hf0_(old_pair.first) % num_buckets_;
                 auto bucket1 = hf1_(old_pair.first) % num_buckets_;
@@ -154,21 +152,21 @@ __device__ bool HashTableBC<Key, T, Hash, Allocator, B>::insert(value_type const
     return false;
 }
 
-template <class Key, class T, class Hash, class Allocator, int B>
+template <class Key, class T, class Hash, class Allocator>
 template <class TileType>
-HashTableBC<Key, T, Hash, Allocator, B>::mapped_type
+HashTableBC<Key, T, Hash, Allocator>::mapped_type
     __device__
-    HashTableBC<Key, T, Hash, Allocator, B>::find(key_type const &key,
-                                                  TileType const &tile)
+    HashTableBC<Key, T, Hash, Allocator>::find(key_type const &key,
+                                               TileType const &tile)
 {
     const int num_hfs = 3;
     auto bucket_id = hf0_(key) % num_buckets_;
     value_type sentinel_pair{sentinel_key_, sentinel_value_};
-    using bucket_type = bucket<atomic_pair_type, value_type, TileType>;
+    using bucket_type = detail::Bucket<atomic_pair_type, value_type, TileType>;
     for (int hf = 0; hf < num_hfs; hf++)
     {
         bucket_type cur_bucket(&d_table_[bucket_id * bucket_size], tile);
-        cur_bucket.load(cuda::memory_order_relaxed);
+        cur_bucket.load();
         int key_location = cur_bucket.find_key_location(key);
         if (key_location != -1)
         {
@@ -186,14 +184,4 @@ HashTableBC<Key, T, Hash, Allocator, B>::mapped_type
     }
 
     return sentinel_value_;
-}
-
-template <class Key, class T, class Hash, class Allocator, int B>
-template <class RNG>
-void HashTableBC<Key, T, Hash, Allocator, B>::randomize_hash_functions(RNG &rng)
-{
-    hf_initializer<hasher, RNG> hf_init{};
-    hf0_ = hf_init(rng);
-    hf1_ = hf_init(rng);
-    hf2_ = hf_init(rng);
 }
