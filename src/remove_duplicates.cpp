@@ -8,19 +8,16 @@
 
 int main(int argc, char **argv)
 {
-    std::string pathToMetaData(argv[1]);
-    std::string pathToData(argv[2]);
-    std::string pathToOut(argv[3]);
+    std::string path_to_metadata(argv[1]);
+    std::string path_to_data(argv[2]);
+    std::string path_to_info_out(argv[3]);
+    std::string path_to_data_out(argv[4]);
 
-    int numOfSequences, seqLength;
-    readMetadataFile(pathToMetaData, numOfSequences, seqLength);
+    int num_sequences, seq_length;
+    readMetadataFile(path_to_metadata, num_sequences, seq_length);
 
-    std::vector<std::vector<int>> sequences(numOfSequences, std::vector<int>(seqLength));
-    readDataFile(pathToData, sequences);
-    for (int i = 0; i < seqLength; i++)
-    {
-        std::cout << sequences[0][i] << ' ';
-    }
+    std::vector<std::vector<int>> sequences(num_sequences, std::vector<int>(seq_length));
+    readDataFile(path_to_data, sequences);
 
     std::unordered_map<std::vector<int>, std::vector<int>, boost::hash<std::vector<int>>> map{};
     for (int i = 0; i < sequences.size(); i++)
@@ -28,16 +25,17 @@ int main(int argc, char **argv)
         auto location = map.find(sequences[i]);
         if (location == map.cend())
         {
-            map.insert(std::make_pair(std::vector<int>(sequences[i]), std::vector<int>({i + 1})));
+            map.insert(std::make_pair(std::vector<int>(sequences[i]), std::vector<int>({ i })));
         }
         else
         {
-            map[sequences[i]].push_back(i + 1);
+            map[sequences[i]].push_back(i);
         }
     }
 
+//TODO parallelize
     std::ofstream out;
-    out.open(pathToOut, std::ios::out);
+    out.open(path_to_info_out, std::ios::out);
     for (const auto &kv : map)
     {
         for (int x : kv.second)
@@ -47,4 +45,18 @@ int main(int argc, char **argv)
         out << '\n';
     }
     out.close();
+
+    std::ofstream out1;
+    out1.open(path_to_data_out);
+    for(const auto& kv : map)
+    {
+        const auto& rep = sequences[kv.second.at(0)];
+        
+        for (int x : rep)
+        {
+            out1 << x << ' ';
+        }
+        out1 << '\n';
+    }
+    out1.close();
 }

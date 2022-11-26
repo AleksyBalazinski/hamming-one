@@ -9,7 +9,7 @@ CFLAGS=-Xcompiler=/std:c++17 -gencode arch=compute_75,code=sm_75 --std c++17 --e
 all: hamming hammingcpu bruteforcecpu generator compareResults
 
 hamming:
-	nvcc -ccbin $(CCBIN) -O3 ./src/kernel.cu ./src/utils.cu -o ./bin/$@ -I ./include
+	nvcc $(CFLAGS) -ccbin $(CCBIN) ./src/kernel.cu ./src/utils.cpp -o ./bin/$@ -I ./include
 
 hamming2:
 	nvcc -ccbin $(CCBIN) -O3 ./src/kernel2.cu ./src/utils.cu -o ./bin/$@ -I ./include
@@ -40,3 +40,6 @@ test_bcht:
 
 example_bcht:
 	nvcc $(CFLAGS) -ccbin $(CCBIN) ./test/example_bcht.cu -o ./bin/$@ -I ./include
+
+example_htsc:
+	nvcc $(CFLAGS) -ccbin $(CCBIN) ./test/example_htsc.cu -o ./bin/$@ -I ./include
