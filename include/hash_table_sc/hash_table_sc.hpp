@@ -6,7 +6,7 @@
 #include "common/cuda_allocator.hpp"
 #include "common/cuda_hash.cuh"
 
-template <class Key, class T, class Hash, class Allocator = CudaAllocator<char>>
+template <class Key, class T, class Hash, class Allocator = CudaAllocator<char>, class Lock = CudaLock>
 struct HashTableSC
 {
     using value_type = Entry<Key, T>;
@@ -15,30 +15,29 @@ struct HashTableSC
     using allocator_type = Allocator;
     using hasher = Hash;
     using size_type = std::size_t;
+    using lock_type = Lock;
 
     using pool_allocator_type =
         typename std::allocator_traits<Allocator>::rebind_alloc<value_type>;
     using entry_ptr_allocator_type =
         typename std::allocator_traits<Allocator>::rebind_alloc<value_type *>;
+    using lock_allocator_type =
+        typename std::allocator_traits<Allocator>::rebind_alloc<lock_type>;
 
     hasher hf;
     pool_allocator_type entryAllocator;
     entry_ptr_allocator_type entryPtrAllocator;
+    lock_allocator_type lock_allocator_;
 
     size_t count;
     size_t elements;
     value_type **entries;
     value_type *pool;
+    lock_type *locks;
 
     HashTableSC() {}
 
-    HashTableSC(int nb_entries, int nb_elements)
-    {
-        count = nb_entries;
-        elements = nb_elements;
-        entries = entryPtrAllocator.allocate(nb_entries);
-        pool = entryAllocator.allocate(nb_elements);
-    }
+    HashTableSC(int nb_entries, int nb_elements);
 
     Entry<Key, T> **getEntries() { return entries; }
 
@@ -70,6 +69,17 @@ struct HashTableSC
         entryAllocator.deallocate(pool, elements);
         entryPtrAllocator.deallocate(entries, count);
     }
+
+    // NEW INTERFACE
+    template <typename InputIt>
+    bool insert(InputIt first, InputIt last);
+
+    template <typename InputIt, typename OutputIt>
+    void find(InputIt first, InputIt last, Output output_begin);
+
+    __device__ bool insert(const value_type &pair);
+
+    __device__ mapped_type find(key_type const &key);
 };
 
 template <class Key, class T, class DevHash, class DevAllocator, class HostHash, class HostAllocator>
