@@ -5,6 +5,7 @@
 #include <fstream>
 #include <vector>
 #include <unordered_map>
+#include <chrono>
 
 void readDataFile(std::string path, std::vector<std::vector<int>> &sequences);
 void readMetadataFile(std::string path, int &numOfSequences, int &sequenceLength);
@@ -60,7 +61,7 @@ std::vector<size_t> computeHashes(Iterator begin, Iterator end, int p, size_t m,
     return hashes;
 }
 
-void hammingOne(std::vector<std::vector<int>> sequences)
+void hammingOne(std::vector<std::vector<int>> sequences, std::ofstream& result_out)
 {
     int seqLength = sequences[0].size();
     std::unordered_multimap<Triple<size_t, size_t, int>, int, TripleHash<size_t, size_t, int>> d;
@@ -114,7 +115,7 @@ void hammingOne(std::vector<std::vector<int>> sequences)
 
         for (auto it = iters.first; it != iters.second; it++)
         {
-            std::cout << i / seqLength << ' ' << it->second << '\n';
+            result_out << i / seqLength << ' ' << it->second << '\n';
         }
     }
 }
@@ -123,6 +124,7 @@ int main(int argc, char **argv)
 {
     std::string pathToMetadata(argv[1]);
     std::string pathToData(argv[2]);
+    std::string path_to_result_out(argv[3]);
 
     int numOfSequences, seqLength;
     readMetadataFile(pathToMetadata, numOfSequences, seqLength);
@@ -130,7 +132,12 @@ int main(int argc, char **argv)
     std::vector<std::vector<int>> sequences(numOfSequences, std::vector<int>(seqLength));
     readDataFile(pathToData, sequences);
 
-    hammingOne(sequences);
+    std::ofstream result_out(path_to_result_out, std::ios::out);
+    std::chrono::steady_clock::time_point t_begin_total = std::chrono::steady_clock::now();
+    hammingOne(sequences, result_out);
+    std::chrono::steady_clock::time_point t_end_total = std::chrono::steady_clock::now();
+    std::cout << "Elapsed time: " << std::chrono::duration_cast<std::chrono::microseconds>(t_end_total - t_begin_total).count() / 1000.0 << " ms\n";
+    result_out.close();
 }
 
 void readDataFile(std::string path, std::vector<std::vector<int>> &sequences)

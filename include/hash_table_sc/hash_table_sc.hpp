@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include "common/cuda_allocator.hpp"
 #include "common/cuda_hash.cuh"
 #include "detail/cuda_lock.cuh"
@@ -34,17 +35,18 @@ struct HashTableSC {
 
     ~HashTableSC();
 
-    Entry<Key, T>** getentries_() { return entries_; }
+    Entry<Key, T>** getentries_() { return d_entries_; }
 
     __host__ __device__ Entry<Key, T>* getBucket(Key key) {
         size_t hashValue = hf_(key) % count_;
 
-        return entries_[hashValue];
+        return d_entries_[hashValue];
     }
 
     void freeTable() {
-        entry_allocator_.deallocate(pool_, elements_);
-        entry_ptr_allocator_.deallocate(entries_, count_);
+        entry_allocator_.deallocate(d_pool_, elements_);
+        entry_ptr_allocator_.deallocate(d_entries_, count_);
+        lock_allocator_.deallocate(d_locks_, count_);
     }
 
     template <typename InputIt>
@@ -60,16 +62,18 @@ struct HashTableSC {
 private:
     mapped_type sentinel_value_;
     hasher hf_;
+
     pool_allocator_type entry_allocator_;
     entry_ptr_allocator_type entry_ptr_allocator_;
     lock_allocator_type lock_allocator_;
 
     size_t count_;
     size_t elements_;
-    entry_type** entries_;
-    entry_type* pool_;
-    lock_type* locks_;
 
+    entry_type** d_entries_;
+    entry_type* d_pool_;
+
+    lock_type* d_locks_;
 };
 
 template <class Key,
@@ -80,20 +84,20 @@ template <class Key,
           class HostAllocator>
 void copyTableToHost(const HashTableSC<Key, T, DevHash, DevAllocator>& table,
                      HashTableSC<Key, T, HostHash, HostAllocator>& hostTable) {
-    cudaMemcpy(hostTable.entries_, table.entries_, table.count_ * sizeof(Entry<Key, T>*),
+    cudaMemcpy(hostTable.d_entries_, table.d_entries_, table.count_ * sizeof(Entry<Key, T>*),
                cudaMemcpyDeviceToHost);
-    cudaMemcpy(hostTable.pool_, table.pool_, table.elements_ * sizeof(Entry<Key, T>),
+    cudaMemcpy(hostTable.d_pool_, table.d_pool_, table.elements_ * sizeof(Entry<Key, T>),
                cudaMemcpyDeviceToHost);
 
     for (int i = 0; i < table.elements_; i++) {
-        if (hostTable.pool_[i].next != nullptr)
-            hostTable.pool_[i].next = (Entry<Key, T>*)((size_t)hostTable.pool_[i].next -
-                                                      (size_t)table.pool_ + (size_t)hostTable.pool_);
+        if (hostTable.d_pool_[i].next != nullptr)
+            hostTable.d_pool_[i].next = (Entry<Key, T>*)((size_t)hostTable.d_pool_[i].next -
+                                                      (size_t)table.d_pool_ + (size_t)hostTable.d_pool_);
     }
     for (int i = 0; i < table.count_; i++) {
-        if (hostTable.entries_[i] != nullptr)
-            hostTable.entries_[i] = (Entry<Key, T>*)((size_t)hostTable.entries_[i] -
-                                                    (size_t)table.pool_ + (size_t)hostTable.pool_);
+        if (hostTable.d_entries_[i] != nullptr)
+            hostTable.d_entries_[i] = (Entry<Key, T>*)((size_t)hostTable.d_entries_[i] -
+                                                    (size_t)table.d_pool_ + (size_t)hostTable.d_pool_);
     }
 }
 

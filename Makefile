@@ -5,11 +5,12 @@ else
 endif
 
 CFLAGS=-Xcompiler=/std:c++17 -gencode arch=compute_75,code=sm_75 --std c++17 --expt-extended-lambda -extended-lambda --expt-relaxed-constexpr --forward-unknown-to-host-linker --forward-unknown-to-host-compiler
+BOOSTDIR="C:\Program Files\boost_1_80_0"
 
-all: hamming hammingcpu bruteforcecpu generator compareResults
+all: hamming hammingcpu bruteforcecpu generator compare_results
 
 hamming:
-	nvcc $(CFLAGS) -ccbin $(CCBIN) ./src/kernel.cu ./src/utils.cpp -o ./bin/$@ -I ./include
+	nvcc $(CFLAGS) -ccbin $(CCBIN) ./src/kernel.cu -o ./bin/$@ -I ./include
 
 hamming2:
 	nvcc -ccbin $(CCBIN) -O3 ./src/kernel2.cu ./src/utils.cu -o ./bin/$@ -I ./include
@@ -32,8 +33,11 @@ bruteforcecpu:
 generator:
 	g++ ./src/generator.cpp -o ./bin/$@
 
-compareResults:
-	g++ ./test/compareResults.cpp -o ./bin/$@
+compare_results:
+	g++ ./src/compare_results.cpp -o ./bin/$@
+
+remove_duplicates:
+	g++ ./src/remove_duplicates.cpp -o ./bin/$@ -I ./include -I $(BOOSTDIR)
 
 test_bcht:
 	nvcc $(CFLAGS) -ccbin $(CCBIN) ./test/test_bcht.cu -o ./bin/$@ -I ./include

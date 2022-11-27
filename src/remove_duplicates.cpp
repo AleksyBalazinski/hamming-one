@@ -11,7 +11,8 @@ int main(int argc, char **argv)
     std::string path_to_metadata(argv[1]);
     std::string path_to_data(argv[2]);
     std::string path_to_info_out(argv[3]);
-    std::string path_to_data_out(argv[4]);
+    std::string path_to_metadata_out(argv[4]);
+    std::string path_to_data_out(argv[5]);
 
     int num_sequences, seq_length;
     readMetadataFile(path_to_metadata, num_sequences, seq_length);
@@ -46,17 +47,21 @@ int main(int argc, char **argv)
     }
     out.close();
 
-    std::ofstream out1;
-    out1.open(path_to_data_out);
+    out.open(path_to_data_out);
     for(const auto& kv : map)
     {
         const auto& rep = sequences[kv.second.at(0)];
         
         for (int x : rep)
         {
-            out1 << x << ' ';
+            out << x << ' ';
         }
-        out1 << '\n';
+        out << '\n';
     }
-    out1.close();
+    out.close();
+
+    out.open(path_to_metadata_out);
+    out << map.size() << ' ' << seq_length << '\n';
+
+    out.close();
 }

@@ -7,9 +7,9 @@ HashTableSC<Key, T, Hash, Allocator, Lock>::HashTableSC(int nb_entries_, int nb_
     count_ = nb_entries_;
     elements_ = nb_elements_;
     sentinel_value_ = sentinel_value;
-    entries_ = entry_ptr_allocator_.allocate(nb_entries_);
-    pool_ = entry_allocator_.allocate(nb_elements_);
-    locks_ = lock_allocator_.allocate(nb_entries_);
+    d_entries_ = entry_ptr_allocator_.allocate(nb_entries_);
+    d_pool_ = entry_allocator_.allocate(nb_elements_);
+    d_locks_ = lock_allocator_.allocate(nb_entries_);
 }
 
 template <class Key, class T, class Hash, class Allocator, class Lock>
@@ -46,13 +46,13 @@ __device__ bool HashTableSC<Key, T, Hash, Allocator, Lock>::insert(const value_t
     size_t hash_value = hf_(key) % count_;
     for (int i = 0; i < 32; i++) {
         if (i == thread_id % 32) {
-            auto location = &(pool_[thread_id]);
+            auto location = &(d_pool_[thread_id]);
             location->key = key;
             location->value = value;
-            locks_[hash_value].lock();
-            location->next = entries_[hash_value];
-            entries_[hash_value] = location;
-            locks_[hash_value].unlock();
+            d_locks_[hash_value].lock();
+            location->next = d_entries_[hash_value];
+            d_entries_[hash_value] = location;
+            d_locks_[hash_value].unlock();
         }
     }
     return true;
@@ -62,7 +62,7 @@ template <class Key, class T, class Hash, class Allocator, class Lock>
 __device__ typename HashTableSC<Key, T, Hash, Allocator, Lock>::mapped_type
   HashTableSC<Key, T, Hash, Allocator, Lock>::find(key_type const& key) {
     size_t hash_value = hf_(key) % count_;
-    auto cur = entries_[hash_value];
+    auto cur = d_entries_[hash_value];
     
     while (cur != nullptr && cur->key != key) {
         cur = cur->next;
