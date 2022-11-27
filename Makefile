@@ -12,12 +12,6 @@ all: hamming hammingcpu bruteforcecpu generator compare_results
 hamming:
 	nvcc $(CFLAGS) -ccbin $(CCBIN) ./src/kernel.cu -o ./bin/$@ -I ./include
 
-hamming2:
-	nvcc -ccbin $(CCBIN) -O3 ./src/kernel2.cu ./src/utils.cu -o ./bin/$@ -I ./include
-
-hamming3:
-	nvcc -ccbin $(CCBIN) -O3 ./src/kernel3.cu ./src/utils.cu -o ./bin/$@ -I ./include
-
 hashTableTest:
 	nvcc -ccbin $(CCBIN) ./test/hashTableTest.cu -o ./bin/$@ -I ./include
 
@@ -47,3 +41,6 @@ example_bcht:
 
 example_htsc:
 	nvcc $(CFLAGS) -ccbin $(CCBIN) ./test/example_htsc.cu -o ./bin/$@ -I ./include
+
+hamming4:
+	nvcc $(CFLAGS) -ccbin $(CCBIN) ./src/kernel4.cu -o ./bin/$@ -I ./include
