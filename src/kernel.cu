@@ -87,5 +87,4 @@ int main(int argc, char** argv) {
                      1000.0
               << " ms\n";
     result_out.close();
-    table.freeTable();
 }

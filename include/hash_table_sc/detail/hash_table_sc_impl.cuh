@@ -3,23 +3,45 @@
 #include "hash_table_sc/detail/device_side.cuh"
 
 template <class Key, class T, class Hash, class Allocator, class Lock>
-HashTableSC<Key, T, Hash, Allocator, Lock>::HashTableSC(int nb_entries_,
-                                                        int nb_elements_,
+HashTableSC<Key, T, Hash, Allocator, Lock>::HashTableSC(int num_entries,
+                                                        int num_elements,
                                                         T sentinel_value) {
-    count_ = nb_entries_;
-    elements_ = nb_elements_;
+    count_ = num_entries;
+    elements_ = num_elements;
     sentinel_value_ = sentinel_value;
-    d_entries_ = entry_ptr_allocator_.allocate(nb_entries_);
-    d_pool_ = entry_allocator_.allocate(nb_elements_);
-    d_locks_ = lock_allocator_.allocate(nb_entries_);
+    d_entries_ = entry_ptr_allocator_.allocate(count_);
+    entries_ =
+        std::shared_ptr<entry_type*>(d_entries_, CudaDeleter<entry_type*>());
+    d_pool_ = entry_allocator_.allocate(elements_);
+    pool_ = std::shared_ptr<entry_type>(d_pool_, CudaDeleter<entry_type>());
+    d_locks_ = lock_allocator_.allocate(count_);
+    locks_ = std::shared_ptr<Lock>(d_locks_, CudaDeleter<Lock>());
 }
+
+template <class Key, class T, class Hash, class Allocator, class Lock>
+HashTableSC<Key, T, Hash, Allocator, Lock>::HashTableSC(
+    const HashTableSC& other)
+    : count_{other.count_},
+      elements_{other.elements_},
+      sentinel_value_{other.sentinel_value_},
+      d_entries_{other.d_entries_},
+      entries_{other.entries_},
+      d_pool_{other.d_pool_},
+      pool_{other.pool_},
+      d_locks_{other.d_locks_},
+      locks_{other.locks_},
+      hf_{other.hf_},
+      entry_allocator_{other.entry_allocator_},
+      entry_ptr_allocator_{other.entry_ptr_allocator_},
+      lock_allocator_{other.lock_allocator_} {}
 
 template <class Key, class T, class Hash, class Allocator, class Lock>
 HashTableSC<Key, T, Hash, Allocator, Lock>::~HashTableSC() {}
 
 template <class Key, class T, class Hash, class Allocator, class Lock>
 template <typename InputIt>
-bool HashTableSC<Key, T, Hash, Allocator, Lock>::insert(InputIt first, InputIt last) {
+bool HashTableSC<Key, T, Hash, Allocator, Lock>::insert(InputIt first,
+                                                        InputIt last) {
     const auto num_keys = std::distance(first, last);
 
     const uint32_t block_size = 128;
@@ -38,15 +60,15 @@ void HashTableSC<Key, T, Hash, Allocator, Lock>::find(InputIt first,
     const uint32_t block_size = 128;
     const uint32_t num_blocks = (num_keys + block_size - 1) / block_size;
 
-    detail::device_side::find<<<num_blocks, block_size>>>(first, last, output_begin, *this);
+    detail::device_side::find<<<num_blocks, block_size>>>(first, last,
+                                                          output_begin, *this);
 }
 
 template <class Key, class T, class Hash, class Allocator, class Lock>
-__device__ bool HashTableSC<Key, T, Hash, Allocator, Lock>::insert(const value_type& pair,
-                                                                   int thread_id,
-                                                                   int lane_id) {
-    const int elected_lane = 0;
-
+__device__ bool HashTableSC<Key, T, Hash, Allocator, Lock>::insert(
+    const value_type& pair,
+    int thread_id,
+    int lane_id) {
     key_type key = pair.first;
     mapped_type value = pair.second;
     size_t hash_value = hf_(key) % count_;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include "cuda_helpers.cuh"
 
 template <typename T>
@@ -37,10 +38,12 @@ public:
     void deallocate(T* p, size_t) { CUDA_TRY(cudaFree(p)); }
 
     void construct(T* p) {
-        // no-op: once memory has been allocated by cudaMalloc(), we cannot access it from host
+        // no-op: once memory has been allocated by cudaMalloc(), we cannot
+        // access it from host
     }
 
     void destroy(T* p) {
-        // no-op: once memory has been allocated by cudaMalloc(), we cannot access it from host
+        // no-op: once memory has been allocated by cudaMalloc(), we cannot
+        // access it from host
     }
 };

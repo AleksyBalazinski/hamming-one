@@ -4,7 +4,7 @@
 #include <cuda/std/atomic>
 
 class CudaLock {
-    cuda::std::atomic_flag mutex_;
+    cuda::std::atomic_flag mutex_ = ATOMIC_FLAG_INIT;
 
 public:
     __device__ void lock() {

@@ -23,30 +23,18 @@ struct HashTableSC {
     using lock_type = Lock;
     using entry_type = Entry<Key, T>;
 
-    using pool_allocator_type = typename std::allocator_traits<Allocator>::rebind_alloc<entry_type>;
+    using pool_allocator_type =
+        typename std::allocator_traits<Allocator>::rebind_alloc<entry_type>;
     using entry_ptr_allocator_type =
         typename std::allocator_traits<Allocator>::rebind_alloc<entry_type*>;
-    using lock_allocator_type = typename std::allocator_traits<Allocator>::rebind_alloc<lock_type>;
+    using lock_allocator_type =
+        typename std::allocator_traits<Allocator>::rebind_alloc<lock_type>;
 
-    HashTableSC() {}
+    HashTableSC(const HashTableSC& other);
 
     HashTableSC(int nb_entries_, int nb_elements_, T sentinel_value);
 
     ~HashTableSC();
-
-    Entry<Key, T>** getentries_() { return d_entries_; }
-
-    __host__ __device__ Entry<Key, T>* getBucket(Key key) {
-        size_t hashValue = hf_(key) % count_;
-
-        return d_entries_[hashValue];
-    }
-
-    void freeTable() {
-        entry_allocator_.deallocate(d_pool_, elements_);
-        entry_ptr_allocator_.deallocate(d_entries_, count_);
-        lock_allocator_.deallocate(d_locks_, count_);
-    }
 
     template <typename InputIt>
     bool insert(InputIt first, InputIt last);
@@ -70,9 +58,13 @@ private:
     size_t elements_;
 
     entry_type** d_entries_;
+    std::shared_ptr<entry_type*> entries_;
+
     entry_type* d_pool_;
+    std::shared_ptr<entry_type> pool_;
 
     lock_type* d_locks_;
+    std::shared_ptr<lock_type> locks_;
 };
 
 template <class Key,
@@ -83,21 +75,23 @@ template <class Key,
           class HostAllocator>
 void copyTableToHost(const HashTableSC<Key, T, DevHash, DevAllocator>& table,
                      HashTableSC<Key, T, HostHash, HostAllocator>& hostTable) {
-    cudaMemcpy(hostTable.d_entries_, table.d_entries_, table.count_ * sizeof(Entry<Key, T>*),
-               cudaMemcpyDeviceToHost);
-    cudaMemcpy(hostTable.d_pool_, table.d_pool_, table.elements_ * sizeof(Entry<Key, T>),
-               cudaMemcpyDeviceToHost);
+    cudaMemcpy(hostTable.d_entries_, table.d_entries_,
+               table.count_ * sizeof(Entry<Key, T>*), cudaMemcpyDeviceToHost);
+    cudaMemcpy(hostTable.d_pool_, table.d_pool_,
+               table.elements_ * sizeof(Entry<Key, T>), cudaMemcpyDeviceToHost);
 
     for (int i = 0; i < table.elements_; i++) {
         if (hostTable.d_pool_[i].next != nullptr)
             hostTable.d_pool_[i].next =
-                (Entry<Key, T>*)((size_t)hostTable.d_pool_[i].next - (size_t)table.d_pool_ +
+                (Entry<Key, T>*)((size_t)hostTable.d_pool_[i].next -
+                                 (size_t)table.d_pool_ +
                                  (size_t)hostTable.d_pool_);
     }
     for (int i = 0; i < table.count_; i++) {
         if (hostTable.d_entries_[i] != nullptr)
             hostTable.d_entries_[i] =
-                (Entry<Key, T>*)((size_t)hostTable.d_entries_[i] - (size_t)table.d_pool_ +
+                (Entry<Key, T>*)((size_t)hostTable.d_entries_[i] -
+                                 (size_t)table.d_pool_ +
                                  (size_t)hostTable.d_pool_);
     }
 }
