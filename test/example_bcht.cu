@@ -1,29 +1,26 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
-#include "hash_table_bc/hash_table_bc.hpp"
 #include <limits>
 #include <vector>
 #include "hash_table_bc/detail/triple.cuh"
+#include "hash_table_bc/hash_table_bc.hpp"
 
-int main()
-{
+int main() {
     using key_type = triple<size_t, size_t, int>;
     using value_type = uint32_t;
     using pair_type = Pair<key_type, value_type>;
     std::size_t capacity = 128;
     std::size_t num_keys = 64;
-    key_type invalid_key{std::numeric_limits<size_t>::max(),
-                         std::numeric_limits<size_t>::max(),
+    key_type invalid_key{std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(),
                          std::numeric_limits<int>::max()};
-    value_type invalid_value = std::numeric_limits<value_type>::max(); // sentinel key and value
+    value_type invalid_value = std::numeric_limits<value_type>::max();  // sentinel key and value
 
-    HashTableBC<key_type, value_type> table(capacity, invalid_key, invalid_value); // ctor
+    HashTableBC<key_type, value_type> table(capacity, invalid_key, invalid_value);  // ctor
 
     std::vector<key_type> h_keys;
     std::vector<value_type> h_values;
     std::vector<pair_type> h_pairs;
-    for (int i = 0; i < num_keys; i++)
-    {
+    for (int i = 0; i < num_keys; i++) {
         h_keys.emplace_back(i, i + 1, i + 2);
         h_values.push_back(2 * i + 1);
         h_pairs.emplace_back(h_keys[i], h_values[i]);
@@ -46,8 +43,7 @@ int main()
     table.find(queries_start, queries_last, output_start);
 
     thrust::host_vector<value_type> h_results = d_results;
-    for (int i = 0; i < num_keys; i++)
-    {
+    for (int i = 0; i < num_keys; i++) {
         auto key = h_keys[i];
         auto expected_pair = h_pairs[i];
         auto found_result = h_results[i];

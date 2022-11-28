@@ -4,10 +4,9 @@
 #include <memory>
 #include "common/cuda_allocator.hpp"
 #include "common/cuda_hash.cuh"
+#include "common/pair.cuh"
 #include "detail/cuda_lock.cuh"
 #include "detail/entry.hpp"
-#include "common/pair.cuh"
-#include "common/cuda_hash.cuh"
 
 template <class Key,
           class T,
@@ -55,7 +54,7 @@ struct HashTableSC {
     template <typename InputIt, typename OutputIt>
     void find(InputIt first, InputIt last, OutputIt output_begin);
 
-    __device__ bool insert(const value_type& pair, int thread_id);
+    __device__ bool insert(const value_type& pair, int thread_id, int lane_id);
 
     __device__ mapped_type find(key_type const& key);
 
@@ -91,13 +90,15 @@ void copyTableToHost(const HashTableSC<Key, T, DevHash, DevAllocator>& table,
 
     for (int i = 0; i < table.elements_; i++) {
         if (hostTable.d_pool_[i].next != nullptr)
-            hostTable.d_pool_[i].next = (Entry<Key, T>*)((size_t)hostTable.d_pool_[i].next -
-                                                      (size_t)table.d_pool_ + (size_t)hostTable.d_pool_);
+            hostTable.d_pool_[i].next =
+                (Entry<Key, T>*)((size_t)hostTable.d_pool_[i].next - (size_t)table.d_pool_ +
+                                 (size_t)hostTable.d_pool_);
     }
     for (int i = 0; i < table.count_; i++) {
         if (hostTable.d_entries_[i] != nullptr)
-            hostTable.d_entries_[i] = (Entry<Key, T>*)((size_t)hostTable.d_entries_[i] -
-                                                    (size_t)table.d_pool_ + (size_t)hostTable.d_pool_);
+            hostTable.d_entries_[i] =
+                (Entry<Key, T>*)((size_t)hostTable.d_entries_[i] - (size_t)table.d_pool_ +
+                                 (size_t)hostTable.d_pool_);
     }
 }
 

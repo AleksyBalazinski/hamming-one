@@ -3,7 +3,9 @@
 #include "hash_table_sc/detail/device_side.cuh"
 
 template <class Key, class T, class Hash, class Allocator, class Lock>
-HashTableSC<Key, T, Hash, Allocator, Lock>::HashTableSC(int nb_entries_, int nb_elements_, T sentinel_value) {
+HashTableSC<Key, T, Hash, Allocator, Lock>::HashTableSC(int nb_entries_,
+                                                        int nb_elements_,
+                                                        T sentinel_value) {
     count_ = nb_entries_;
     elements_ = nb_elements_;
     sentinel_value_ = sentinel_value;
@@ -40,30 +42,32 @@ void HashTableSC<Key, T, Hash, Allocator, Lock>::find(InputIt first,
 }
 
 template <class Key, class T, class Hash, class Allocator, class Lock>
-__device__ bool HashTableSC<Key, T, Hash, Allocator, Lock>::insert(const value_type& pair, int thread_id) {
+__device__ bool HashTableSC<Key, T, Hash, Allocator, Lock>::insert(const value_type& pair,
+                                                                   int thread_id,
+                                                                   int lane_id) {
+    const int elected_lane = 0;
+
     key_type key = pair.first;
     mapped_type value = pair.second;
     size_t hash_value = hf_(key) % count_;
-    for (int i = 0; i < 32; i++) {
-        if (i == thread_id % 32) {
-            auto location = &(d_pool_[thread_id]);
-            location->key = key;
-            location->value = value;
-            d_locks_[hash_value].lock();
-            location->next = d_entries_[hash_value];
-            d_entries_[hash_value] = location;
-            d_locks_[hash_value].unlock();
-        }
+    if (lane_id == thread_id % 32) {
+        auto location = &(d_pool_[thread_id]);
+        location->key = key;
+        location->value = value;
+        d_locks_[hash_value].lock();
+        location->next = d_entries_[hash_value];
+        d_entries_[hash_value] = location;
+        d_locks_[hash_value].unlock();
     }
     return true;
 }
 
 template <class Key, class T, class Hash, class Allocator, class Lock>
 __device__ typename HashTableSC<Key, T, Hash, Allocator, Lock>::mapped_type
-  HashTableSC<Key, T, Hash, Allocator, Lock>::find(key_type const& key) {
+HashTableSC<Key, T, Hash, Allocator, Lock>::find(key_type const& key) {
     size_t hash_value = hf_(key) % count_;
     auto cur = d_entries_[hash_value];
-    
+
     while (cur != nullptr && cur->key != key) {
         cur = cur->next;
     }

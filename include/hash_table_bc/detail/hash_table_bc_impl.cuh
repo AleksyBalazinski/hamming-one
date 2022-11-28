@@ -1,3 +1,5 @@
+// Based on "Better GPU Hash Tables" by M. A. Awad, S. Ashkiani, S. D. Porumbescu, M. Farach-Colton & J. D. Owens
+
 #pragma once
 
 #include <random>

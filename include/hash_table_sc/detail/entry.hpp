@@ -1,9 +1,8 @@
 #pragma once
 
 template <class Key, class T>
-struct Entry
-{
+struct Entry {
     Key key;
     T value;
-    Entry<Key, T> *next;
+    Entry<Key, T>* next;
 };
