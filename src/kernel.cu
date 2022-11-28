@@ -29,7 +29,8 @@ int main(int argc, char** argv) {
     std::vector<int> seq_ids(total_len);
     readRefinedDataFile(path_to_data, h_sequences, seq_length, seq_ids);
 
-    std::chrono::steady_clock::time_point t_begin_total = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point t_begin_total =
+        std::chrono::steady_clock::now();
     thrust::device_vector<int> d_sequences(total_len);
     d_sequences = h_sequences;
 
@@ -43,8 +44,8 @@ int main(int argc, char** argv) {
     const uint32_t block_size = 128;
     const uint32_t num_blocks = (num_sequences + block_size - 1) / block_size;
     hamming::device_side::getHashes<<<num_blocks, block_size>>>(
-        seq_length, d_sequences.begin(), d_sequences.end(), d_prefixes.begin(), d_suffixes.begin(),
-        d_matching_hashes.begin(), d_own_hashes.begin());
+        seq_length, d_sequences.begin(), d_sequences.end(), d_prefixes.begin(),
+        d_suffixes.begin(), d_matching_hashes.begin(), d_own_hashes.begin());
     // HASH TABLE
     // dev_own_hashes - keys, seq_id = i / seq_length - values
     // dev_matching_hashes - queries
@@ -55,31 +56,34 @@ int main(int argc, char** argv) {
 
     thrust::device_vector<int> d_values(total_len);
     d_values = seq_ids;
-    auto toPair = [] __host__ __device__(hash_type a, int b) { return pair_type{a, b}; };
+    auto toPair = [] __host__ __device__(hash_type a, int b) {
+        return pair_type{a, b};
+    };
 
     thrust::device_vector<pair_type> d_pairs(total_len);
-    thrust::transform(thrust::device, d_own_hashes.begin(), d_own_hashes.end(), d_values.begin(),
-                      d_pairs.begin(), toPair);
+    thrust::transform(thrust::device, d_own_hashes.begin(), d_own_hashes.end(),
+                      d_values.begin(), d_pairs.begin(), toPair);
 
     table.insert(d_pairs.begin(), d_pairs.end());
     CUDA_TRY(cudaDeviceSynchronize());
     thrust::device_vector<int> d_results(total_len);
-    table.find(d_matching_hashes.begin(), d_matching_hashes.end(), d_results.begin());
-    CUDA_TRY(cudaDeviceSynchronize());  // an illegal memory access was encountered
+    table.find(d_matching_hashes.begin(), d_matching_hashes.end(),
+               d_results.begin());
+    CUDA_TRY(
+        cudaDeviceSynchronize());  // an illegal memory access was encountered
 
     thrust::host_vector<int> h_results = d_results;
     std::ofstream result_out(path_to_result, std::ios::out);
     for (int i = 0; i < total_len; i++) {
-        if (h_results[i] != empty_value)
-        {
-            //result_out << i / seq_length << ' ' << h_results[i] << '\n';
+        if (h_results[i] != empty_value) {
             result_out << seq_ids[i] << ' ' << h_results[i] << '\n';
         }
-            
     }
-    std::chrono::steady_clock::time_point t_end_total = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point t_end_total =
+        std::chrono::steady_clock::now();
     std::cout << "Elapsed time: "
-              << std::chrono::duration_cast<std::chrono::microseconds>(t_end_total - t_begin_total)
+              << std::chrono::duration_cast<std::chrono::microseconds>(
+                     t_end_total - t_begin_total)
                          .count() /
                      1000.0
               << " ms\n";

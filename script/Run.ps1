@@ -38,6 +38,12 @@ Write-Output "`nBucketed cuckoo hashing hash table on GPU"
 bin/hamming4.exe $metadataRefined $dataRefined $lf $logGpuBC
 Write-Output "Process returned $($LASTEXITCODE)"
 
+# optional part
+$validateResults = Read-Host "Validate results? [y/n]"
+if($validateResults -ne "y") {
+    Break
+}
+
 # extend with duplicates
 Write-Output "`nExtend GPU results to include duplicates"
 bin/extend_to_duplicates $logGpuSC $refinementInfo $logGpuSCExt
