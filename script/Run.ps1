@@ -7,7 +7,9 @@ param (
     [string]$logCpuBrf = "cpu-brf.log",
     [string]$logCpuLin = "./result/cpu.log",
     [string]$logGpuSC = "./result/gpu_sc.log",
+    [string]$logGpuSCExt = "./result/gpu_sc_ext.log",
     [string]$logGpuBC = "./result/gpu_bc.log",
+    [string]$logGpuBCExt = "./result/gpu_bc_ext.log",
     [int]$l = 5, # sequence length
     [int]$n = 20, # number of sequences
     [double]$lf = 0.6 # load factor
@@ -22,8 +24,8 @@ Write-Output "`nRemove duplicates"
 bin/remove_duplicates.exe $metadata $data $refinementInfo $metadataRefined $dataRefined
 
 # compute results - linear on CPU
-Write-Output "`nCPU unordered_map"
-bin/hammingcpu.exe $metadataRefined $dataRefined $logCpuLin
+Write-Output "`nCPU unordered_multimap"
+bin/hammingcpu.exe $metadata $data $logCpuLin
 Write-Output "Process returned $($LASTEXITCODE)"
 
 # compute results - linear on GPU w/ separate chaining hash table
@@ -36,9 +38,14 @@ Write-Output "`nBucketed cuckoo hashing hash table on GPU"
 bin/hamming4.exe $metadataRefined $dataRefined $lf $logGpuBC
 Write-Output "Process returned $($LASTEXITCODE)"
 
+# extend with duplicates
+Write-Output "`nExtend GPU results to include duplicates"
+bin/extend_to_duplicates $logGpuSC $refinementInfo $logGpuSCExt
+bin/extend_to_duplicates $logGpuBC $refinementInfo $logGpuBCExt
+
 # validate results
 Write-Output "`nCompare CPU multimap vs GPU SC hash table"
-bin/compare_results.exe $logCpuLin $logGpuSC
+bin/compare_results.exe $logCpuLin $logGpuSCExt
 
 Write-Output "`nCompare CPU multimap vs GPU BC hash table"
-bin/compare_results.exe $logCpuLin $logGpuBC
+bin/compare_results.exe $logCpuLin $logGpuBCExt

@@ -41,7 +41,7 @@ int main(int argc, char **argv)
     {
         for (int x : kv.second)
         {
-            out << x << ' ';
+            out << x + 1 << ' ';
         }
         out << '\n';
     }
@@ -51,7 +51,7 @@ int main(int argc, char **argv)
     for(const auto& kv : map)
     {
         const auto& rep = sequences[kv.second.at(0)];
-        
+        out << kv.second.at(0) + 1 << "\t\t\t";
         for (int x : rep)
         {
             out << x << ' ';

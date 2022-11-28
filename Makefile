@@ -19,7 +19,7 @@ arrayTest:
 	nvcc -ccbin $(CCBIN) ./test/arrayTest.cu -o ./bin/$@ -I ./include
 
 hammingcpu:
-	nvcc -x c++ -ccbin $(CCBIN) ./src/linear.cpp -o ./bin/$@ -I ./include
+	g++ ./src/linear.cpp -o ./bin/$@ -I ./include
 
 bruteforcecpu:
 	g++ ./src/bruteForce.cpp -o ./bin/$@
@@ -44,3 +44,6 @@ example_htsc:
 
 hamming4:
 	nvcc $(CFLAGS) -ccbin $(CCBIN) ./src/kernel4.cu -o ./bin/$@ -I ./include
+
+extend_to_duplicates:
+	g++ ./src/$@.cpp -o ./bin/$@

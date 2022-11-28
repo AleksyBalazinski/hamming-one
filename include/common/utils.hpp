@@ -4,7 +4,10 @@
 #include <string>
 #include <vector>
 
-void readDataFile(std::string path, int* sequences, int numOfSequences, int seqLength) {
+void readDataFile(std::string path,
+                  int* sequences,
+                  int numOfSequences,
+                  int seqLength) {
     std::ifstream in;
     in.open(path, std::ios::in);
 
@@ -30,6 +33,27 @@ void readDataFile(std::string path, std::vector<std::vector<T>>& sequences) {
 }
 
 template <typename T>
+void readRefinedDataFile(std::string path,
+                  std::vector<T>& sequences,
+                  int seq_length,
+                  std::vector<T>& seq_ids) {
+    std::ifstream in;
+    in.open(path, std::ios::in);
+
+    int num_sequences = sequences.size() / seq_length;
+    for (int i = 0; i < num_sequences; i++) {
+        int seq_id;
+        in >> seq_id;
+        for(int j=0; j < seq_length; j++) {
+            seq_ids[j + i * seq_length] = seq_id;
+        }
+        for (int j = 0; j < seq_length; j++) {
+            in >> sequences[j + i * seq_length];
+        }
+    }
+}
+
+template <typename T>
 void readDataFile(std::string path, std::vector<T>& sequences) {
     std::ifstream in;
     in.open(path, std::ios::in);
@@ -40,7 +64,9 @@ void readDataFile(std::string path, std::vector<T>& sequences) {
     in.close();
 }
 
-void readMetadataFile(std::string path, int& numOfSequences, int& sequenceLength) {
+void readMetadataFile(std::string path,
+                      int& numOfSequences,
+                      int& sequenceLength) {
     std::ifstream in;
     in.open(path, std::ios::in);
     in >> numOfSequences >> sequenceLength;

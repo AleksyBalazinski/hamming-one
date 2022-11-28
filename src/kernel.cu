@@ -14,12 +14,6 @@
 #include "hamming/position_hashes.cuh"
 #include "hash_table_sc/hash_table_sc.hpp"
 
-void fillWithSeqIds(std::vector<int>& vec, int seq_length) {
-    for (int i = 0; i < vec.size(); i++) {
-        vec[i] = i / seq_length;
-    }
-}
-
 int main(int argc, char** argv) {
     std::string path_to_metadata(argv[1]);
     std::string path_to_data(argv[2]);
@@ -32,7 +26,8 @@ int main(int argc, char** argv) {
     size_t total_len = num_sequences * seq_length;
     const size_t HASH_ENTRIES = total_len / load_factor;
     std::vector<int> h_sequences(total_len);
-    readDataFile(path_to_data, h_sequences);
+    std::vector<int> seq_ids(total_len);
+    readRefinedDataFile(path_to_data, h_sequences, seq_length, seq_ids);
 
     std::chrono::steady_clock::time_point t_begin_total = std::chrono::steady_clock::now();
     thrust::device_vector<int> d_sequences(total_len);
@@ -56,8 +51,6 @@ int main(int argc, char** argv) {
     const int empty_value = std::numeric_limits<int>::max();
     HashTableSC<hash_type, int> table(HASH_ENTRIES, total_len, empty_value);
 
-    std::vector<int> seq_ids(total_len);
-    fillWithSeqIds(seq_ids, seq_length);  // TODO parallelize, generalize
     using pair_type = Pair<hash_type, int>;
 
     thrust::device_vector<int> d_values(total_len);
@@ -78,7 +71,11 @@ int main(int argc, char** argv) {
     std::ofstream result_out(path_to_result, std::ios::out);
     for (int i = 0; i < total_len; i++) {
         if (h_results[i] != empty_value)
-            result_out << i / seq_length << ' ' << h_results[i] << '\n';
+        {
+            //result_out << i / seq_length << ' ' << h_results[i] << '\n';
+            result_out << seq_ids[i] << ' ' << h_results[i] << '\n';
+        }
+            
     }
     std::chrono::steady_clock::time_point t_end_total = std::chrono::steady_clock::now();
     std::cout << "Elapsed time: "

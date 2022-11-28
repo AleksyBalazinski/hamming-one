@@ -115,7 +115,7 @@ void hammingOne(std::vector<std::vector<int>> sequences, std::ofstream& result_o
 
         for (auto it = iters.first; it != iters.second; it++)
         {
-            result_out << i / seqLength << ' ' << it->second << '\n';
+            result_out << i / seqLength + 1 << ' ' << it->second + 1 << '\n';
         }
     }
 }

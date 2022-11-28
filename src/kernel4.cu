@@ -30,7 +30,9 @@ int main(int argc, char** argv) {
     size_t total_len = num_sequences * seq_length;
     const size_t HASH_ENTRIES = total_len / load_factor;
     std::vector<int> h_sequences(total_len);
-    readDataFile(path_to_data, h_sequences);
+    //readDataFile(path_to_data, h_sequences);
+    std::vector<int> seq_ids(total_len);
+    readRefinedDataFile(path_to_data, h_sequences, seq_length, seq_ids);
     std::chrono::steady_clock::time_point t_begin_total = std::chrono::steady_clock::now();
     thrust::device_vector<int> d_sequences(total_len);
     d_sequences = h_sequences;
@@ -52,8 +54,8 @@ int main(int argc, char** argv) {
     const hash_type empty_key = hash_type(0, 0, 2);
     HashTableBC<hash_type, int> table(HASH_ENTRIES, empty_key, empty_value);
 
-    std::vector<int> seq_ids(total_len);
-    fillWithSeqIds(seq_ids, seq_length);  // TODO parallelize, generalize
+    //std::vector<int> seq_ids(total_len);
+    //fillWithSeqIds(seq_ids, seq_length);  // TODO parallelize, generalize
     using pair_type = Pair<hash_type, int>;
 
     thrust::device_vector<int> d_values(total_len);
@@ -65,13 +67,18 @@ int main(int argc, char** argv) {
                       d_pairs.begin(), toPair);
 
     table.insert(d_pairs.begin(), d_pairs.end());
+    CUDA_TRY(cudaDeviceSynchronize());
     thrust::device_vector<int> d_results(total_len);
     table.find(d_matching_hashes.begin(), d_matching_hashes.end(), d_results.begin());
+    CUDA_TRY(cudaDeviceSynchronize());
+
     thrust::host_vector<int> h_results = d_results;
     std::ofstream result_out(path_to_result, std::ios::out);
     for (int i = 0; i < total_len; i++) {
-        if (h_results[i] != empty_value)
-            result_out << i / seq_length << ' ' << h_results[i] << '\n';
+        if (h_results[i] != empty_value) {
+            //result_out << i / seq_length << ' ' << h_results[i] << '\n';
+            result_out << seq_ids[i] << ' ' << h_results[i] << '\n';
+        }
     }
     std::chrono::steady_clock::time_point t_end_total = std::chrono::steady_clock::now();
     std::cout << "Elapsed time: "
