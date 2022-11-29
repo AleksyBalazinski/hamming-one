@@ -9,7 +9,8 @@ struct CudaHash {
     __host__ __device__ constexpr CudaHash(uint32_t hash_x, uint32_t hash_y)
         : hash_x_(hash_x), hash_y_(hash_y) {}
 
-    constexpr result_type __host__ __device__ operator()(const key_type& key) const {
+    constexpr result_type __host__ __device__
+    operator()(const key_type& key) const {
         return (((hash_x_ ^ key) + hash_y_) % prime_divisor);
     }
 
@@ -37,8 +38,10 @@ struct CudaHash<triple<T1, T2, T3>> {
                                            uint32_t hash_w)
         : hash_x_{hash_x}, hash_y_{hash_y_}, hash_z_{hash_z}, hash_w_{hash_w} {}
 
-    constexpr result_type __host__ __device__ operator()(const key_type& key) const {
-        return ((hash_x_ ^ key.first + hash_y_ ^ key.second + hash_z_ ^ key.third + hash_w_) %
+    constexpr result_type __host__ __device__
+    operator()(const key_type& key) const {
+        return ((hash_x_ ^ key.first + hash_y_ ^ key.second + hash_z_ ^
+                 key.third + hash_w_) %
                 prime_divisor);
     }
 

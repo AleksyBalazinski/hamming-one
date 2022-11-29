@@ -17,7 +17,10 @@ struct Pair {
     __host__ __device__ inline bool operator==(const Pair& rhs) {
         return (this->first == rhs.first) && (this->second == rhs.second);
     }
-    __host__ __device__ inline bool operator!=(const Pair& rhs) { return !(*this == rhs); }
+    __host__ __device__ inline bool operator!=(const Pair& rhs) {
+        return !(*this == rhs);
+    }
 
-    __host__ __device__ constexpr Pair(T1 const& t, T2 const& u) : first{t}, second{u} {}
+    __host__ __device__ constexpr Pair(T1 const& t, T2 const& u)
+        : first{t}, second{u} {}
 };

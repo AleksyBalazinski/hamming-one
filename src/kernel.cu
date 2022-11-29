@@ -6,8 +6,8 @@
 #include <string>
 #include <thread>
 #include <vector>
-
 #include <limits>
+
 #include "common/cuda_allocator.hpp"
 #include "common/cuda_timer.cuh"
 #include "common/triple.cuh"

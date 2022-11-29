@@ -35,7 +35,10 @@ __global__ void insert(InputIt first, InputIt last, HashTable table) {
 }
 
 template <typename InputIt, typename OutputIt, typename HashTable>
-__global__ void find(InputIt first, InputIt last, OutputIt output_begin, HashTable table) {
+__global__ void find(InputIt first,
+                     InputIt last,
+                     OutputIt output_begin,
+                     HashTable table) {
     int thread_id = threadIdx.x + blockDim.x * blockIdx.x;
     auto count_ = last - first;
     if (thread_id > count_ - 1)

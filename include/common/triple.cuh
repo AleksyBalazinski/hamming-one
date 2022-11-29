@@ -17,7 +17,9 @@ struct triple {
         return (this->first == rhs.first) && (this->second == rhs.second) &&
                (this->third == rhs.third);
     }
-    __host__ __device__ inline bool operator!=(const triple& rhs) const { return !(*this == rhs); }
+    __host__ __device__ inline bool operator!=(const triple& rhs) const {
+        return !(*this == rhs);
+    }
 
     __host__ __device__ constexpr triple(T1 const& t, T2 const& u, T3 const& v)
         : first{t}, second{u}, third{v} {}

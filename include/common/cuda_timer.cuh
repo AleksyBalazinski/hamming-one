@@ -5,13 +5,9 @@ struct CudaTimer {
         cudaEventCreate(&start_);
         cudaEventCreate(&stop_);
     }
-    void startTimer() {
-        cudaEventRecord(start_, 0);
-    }
+    void startTimer() { cudaEventRecord(start_, 0); }
 
-    void stopTimer() {
-        cudaEventRecord(stop_, 0);
-    }
+    void stopTimer() { cudaEventRecord(stop_, 0); }
 
     float getElapsedMs() {
         getTimeDiffMs();
@@ -27,7 +23,7 @@ private:
     void getTimeDiffMs() {
         cudaEventSynchronize(stop_);
         cudaEventElapsedTime(&elapsed_time_, start_, stop_);
-    } 
+    }
 
     cudaEvent_t start_;
     cudaEvent_t stop_;
