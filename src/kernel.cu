@@ -9,6 +9,7 @@
 
 #include <limits>
 #include "common/cuda_allocator.hpp"
+#include "common/cuda_timer.cuh"
 #include "common/triple.cuh"
 #include "common/utils.hpp"
 #include "hamming/position_hashes.cuh"
@@ -19,6 +20,12 @@ int main(int argc, char** argv) {
     std::string path_to_data(argv[2]);
     const double load_factor = std::stod(argv[3]);
     std::string path_to_result(argv[4]);
+
+    // GPU timers
+    CudaTimer data_copying_timer1;
+    CudaTimer data_copying_timer2;
+    CudaTimer insert_timer;
+    CudaTimer find_timer;
 
     int num_sequences, seq_length;
     readMetadataFile(path_to_metadata, num_sequences, seq_length);
@@ -32,7 +39,11 @@ int main(int argc, char** argv) {
     std::chrono::steady_clock::time_point t_begin_total =
         std::chrono::steady_clock::now();
     thrust::device_vector<int> d_sequences(total_len);
+
+    data_copying_timer1.startTimer();
     d_sequences = h_sequences;
+    data_copying_timer1.startTimer();
+    auto sequences_copy_ms = data_copying_timer1.getElapsedMs();
 
     thrust::device_vector<size_t> d_prefixes(total_len);
     thrust::device_vector<size_t> d_suffixes(total_len);
@@ -64,15 +75,27 @@ int main(int argc, char** argv) {
     thrust::transform(thrust::device, d_own_hashes.begin(), d_own_hashes.end(),
                       d_values.begin(), d_pairs.begin(), toPair);
 
+    insert_timer.startTimer();
     table.insert(d_pairs.begin(), d_pairs.end());
+    insert_timer.stopTimer();
+    auto insertion_ms = insert_timer.getElapsedMs();
+
     CUDA_TRY(cudaDeviceSynchronize());
     thrust::device_vector<int> d_results(total_len);
+
+    find_timer.startTimer();
     table.find(d_matching_hashes.begin(), d_matching_hashes.end(),
                d_results.begin());
-    CUDA_TRY(
-        cudaDeviceSynchronize());
+    find_timer.stopTimer();
+    auto find_ms = find_timer.getElapsedMs();
 
+    CUDA_TRY(cudaDeviceSynchronize());
+
+    data_copying_timer2.startTimer();
     thrust::host_vector<int> h_results = d_results;
+    data_copying_timer2.stopTimer();
+    auto results_copy_ms = data_copying_timer2.getElapsedMs();
+
     std::ofstream result_out(path_to_result, std::ios::out);
     for (int i = 0; i < total_len; i++) {
         if (h_results[i] != empty_value) {
@@ -81,11 +104,17 @@ int main(int argc, char** argv) {
     }
     std::chrono::steady_clock::time_point t_end_total =
         std::chrono::steady_clock::now();
-    std::cout << "Elapsed time: "
+    std::cout << "Elapsed total time: "
               << std::chrono::duration_cast<std::chrono::microseconds>(
                      t_end_total - t_begin_total)
                          .count() /
                      1000.0
               << " ms\n";
+    std::cout << "Time spent copying data: "
+              << sequences_copy_ms + results_copy_ms << " ms\n";
+    std::cout << "Insertions took: " << insertion_ms << " ms "
+              << "(avg. " << total_len / insertion_ms / 1000.0 << " M/s)\n";
+    std::cout << "Finds took: " << find_ms << " ms "
+              << "(avg. " << total_len / find_ms / 1000.0 << " M/s)\n";
     result_out.close();
 }

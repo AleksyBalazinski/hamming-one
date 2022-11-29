@@ -4,18 +4,18 @@ param (
     [string]$dataRefined = "./assets/data_refined.txt",
     [string]$metadataRefined = "./assets/metadata_refined.txt",
     [string]$refinementInfo = "./assets/refinement_info.txt",
-    [string]$logCpuBrf = "./result/cpu-brf.log",
-    [string]$logCpuLin = "./result/cpu.log",
-    [string]$logGpu = "./result/gpu.log",
-    [string]$logGpuExt = "./result/gpu_ext.log",
-    [string]$logCpuLinExt = "./result/cpu_ext.log",
+    [string]$logCpuBrf = "./result/cpu-brf.txt",
+    [string]$logCpuLin = "./result/cpu.txt",
+    [string]$logGpu = "./result/gpu.txt",
+    [string]$logGpuExt = "./result/gpu_ext.txt",
+    [string]$logCpuLinExt = "./result/cpu_ext.txt",
     [int]$l = 5, # sequence length
     [int]$n = 20, # number of sequences
     [double]$lf = 0.6 # load factor
 )
 
 # generate data
-Write-Output "Generating data"
+Write-Output "Generating $($n) sequences of length $($l). Saving output to $($metadata), $($data)"
 bin/generator.exe $metadata $data $l $n
 
 # eliminate duplicates
@@ -33,7 +33,7 @@ bin/hamming.exe $metadataRefined $dataRefined $lf $logGpu
 Write-Output "Process returned $($LASTEXITCODE)"
 
 # optional part
-$validateResults = Read-Host "Validate results? (this will take a while) [y/n]"
+$validateResults = Read-Host "`nValidate results? (this will take a while) [y/n]"
 if($validateResults -ne "y") {
     Break
 }
@@ -45,11 +45,11 @@ Write-Output "`nExtending GPU results to include duplicates. Saving output to $(
 bin/extend_to_duplicates.exe $logGpu $refinementInfo $logGpuExt
 
 # validate results
-Write-Output "`nPerforming brute-force claculations on CPU"
+Write-Output "`nPerforming brute-force calculations on CPU"
 bin/bruteforcecpu.exe $metadata $data $logCpuBrf
 
-Write-Output "`nComparing results from CPU brute-force and CPU std::unordered_map"
+Write-Output "`nComparing results from CPU brute-force with CPU std::unordered_map"
 bin/compare_results.exe $logCpuBrf $logCpuLinExt
 
-Write-Output "`nComparing results from CPU std::unordered_map and GPU hash table"
+Write-Output "`nComparing results from CPU std::unordered_map with GPU hash table"
 bin/compare_results.exe $logCpuLinExt $logGpuExt
