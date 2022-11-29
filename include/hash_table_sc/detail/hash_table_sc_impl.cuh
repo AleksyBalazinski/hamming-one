@@ -99,3 +99,12 @@ HashTableSC<Key, T, Hash, Allocator, Lock>::find(key_type const& key) {
     }
     return cur->value;
 }
+
+template <class Key, class T, class Hash, class Allocator, class Lock>
+__host__ __device__
+    typename HashTableSC<Key, T, Hash, Allocator, Lock>::bucket_type
+    HashTableSC<Key, T, Hash, Allocator, Lock>::getBucket(key_type key) {
+    size_t hash_value = hf_(key) % count_;
+
+    return d_entries_[hash_value];
+}

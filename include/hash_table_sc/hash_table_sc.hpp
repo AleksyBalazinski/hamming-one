@@ -22,6 +22,7 @@ struct HashTableSC {
     using size_type = std::size_t;
     using lock_type = Lock;
     using entry_type = Entry<Key, T>;
+    using bucket_type = Entry<Key, T>*;
 
     using pool_allocator_type =
         typename std::allocator_traits<Allocator>::rebind_alloc<entry_type>;
@@ -45,6 +46,8 @@ struct HashTableSC {
     __device__ bool insert(const value_type& pair, int thread_id, int lane_id);
 
     __device__ mapped_type find(key_type const& key);
+
+    __host__ __device__ entry_type* getBucket(key_type key);
 
 private:
     mapped_type sentinel_value_;

@@ -70,7 +70,7 @@ int main(int argc, char** argv) {
     table.find(d_matching_hashes.begin(), d_matching_hashes.end(),
                d_results.begin());
     CUDA_TRY(
-        cudaDeviceSynchronize());  // an illegal memory access was encountered
+        cudaDeviceSynchronize());
 
     thrust::host_vector<int> h_results = d_results;
     std::ofstream result_out(path_to_result, std::ios::out);

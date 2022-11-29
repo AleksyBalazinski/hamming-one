@@ -1,3 +1,3 @@
-Remove-Item ./assets/*
-Remove-Item ./bin/*
-Remove-Item ./result/*
+Remove-Item ./assets/* -Confirm
+Remove-Item ./bin/* -Confirm
+Remove-Item ./result/* -Confirm

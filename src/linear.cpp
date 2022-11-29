@@ -1,14 +1,10 @@
-#define noDEBUG
-
 #include <string>
 #include <iostream>
 #include <fstream>
 #include <vector>
 #include <unordered_map>
 #include <chrono>
-
-void readDataFile(std::string path, std::vector<std::vector<int>> &sequences);
-void readMetadataFile(std::string path, int &numOfSequences, int &sequenceLength);
+#include "common/utils.hpp"
 
 template <class T1, class T2, class T3>
 struct Triple
@@ -43,12 +39,12 @@ struct TripleHash
 };
 
 template <typename Iterator>
-std::vector<size_t> computeHashes(Iterator begin, Iterator end, int p, size_t m, int seqLength)
+std::vector<size_t> computeHashes(Iterator begin, Iterator end, int p, size_t m, int seq_length)
 {
     size_t hashValue = 0;
     size_t pPow = 1;
     std::vector<size_t> hashes;
-    hashes.reserve(seqLength);
+    hashes.reserve(seq_length);
 
     for (auto &it = begin; it != end; it++)
     {
@@ -61,105 +57,80 @@ std::vector<size_t> computeHashes(Iterator begin, Iterator end, int p, size_t m,
     return hashes;
 }
 
-void hammingOne(std::vector<std::vector<int>> sequences, std::ofstream& result_out)
+void hammingOne(const std::vector<std::vector<int>>& sequences, const std::vector<int>& seq_ids, std::ofstream& result_out)
 {
-    int seqLength = sequences[0].size();
-    std::unordered_multimap<Triple<size_t, size_t, int>, int, TripleHash<size_t, size_t, int>> d;
+    int seq_length = sequences[0].size();
+    using hash_type = Triple<size_t, size_t, int>;
+    std::unordered_map<hash_type, int, TripleHash<size_t, size_t, int>> d;
     const int p = 31;
-    const size_t m1 = 4757501900887;
-    constexpr size_t m2 = 3348549226339;
+    const size_t m1 = 4757501900887ull;
+    constexpr size_t m2 = 3348549226339ull;
     int sId = 0;
-    std::vector<Triple<size_t, size_t, int>> ownHashes;
-    std::vector<Triple<size_t, size_t, int>> matchingHashes;
+    std::vector<hash_type> own_hashes;
+    std::vector<hash_type> matching_hashes;
     for (const auto &seq : sequences)
     {
-        auto h1 = computeHashes(seq.cbegin(), seq.cend(), p, m1, seqLength);
-        auto h2 = computeHashes(seq.crbegin(), seq.crend(), p, m2, seqLength);
-        for (int i = 0; i < seqLength; i++)
+        auto h1 = computeHashes(seq.cbegin(), seq.cend(), p, m1, seq_length);
+        auto h2 = computeHashes(seq.crbegin(), seq.crend(), p, m2, seq_length);
+        for (int i = 0; i < seq_length; i++)
         {
-            size_t prefixHash;
+            size_t prefix_hash;
             if (i == 0)
-                prefixHash = 0;
+                prefix_hash = 0;
             else
-                prefixHash = h1[i - 1];
+                prefix_hash = h1[i - 1];
 
-            size_t suffixHash;
-            if (i == seqLength - 1)
-                suffixHash = 0;
+            size_t suffix_hash;
+            if (i == seq_length - 1)
+                suffix_hash = 0;
             else
-                suffixHash = h2[seqLength - i - 2];
+                suffix_hash = h2[seq_length - i - 2];
 
             unsigned char erased = seq[i];
 
-            auto matchingHash = Triple<size_t, size_t, int>(prefixHash, suffixHash, erased == 0 ? 1 : 0);
-            auto ownHash = Triple<size_t, size_t, int>(prefixHash, suffixHash, seq[i] == 0 ? 0 : 1);
+            auto matching_hash = hash_type(prefix_hash, suffix_hash, erased == 0 ? 1 : 0);
+            auto own_hash = hash_type(prefix_hash, suffix_hash, erased == 0 ? 0 : 1);
 
-            ownHashes.push_back(ownHash);
-            matchingHashes.push_back(matchingHash);
+            own_hashes.push_back(own_hash);
+            matching_hashes.push_back(matching_hash);
         }
         sId++;
     }
 
-    for (int i = 0; i < ownHashes.size(); i++)
+    for (int i = 0; i < own_hashes.size(); i++)
     {
-        d.insert({ownHashes[i], i / seqLength});
+        d.insert({own_hashes[i], seq_ids[i / seq_length]});
     }
 
-    for (int i = 0; i < matchingHashes.size(); i++)
+    for (int i = 0; i < matching_hashes.size(); i++)
     {
-        auto iters = d.equal_range(matchingHashes[i]);
-        if (iters.first == d.end() && iters.second == d.end())
+        auto it = d.find(matching_hashes[i]);
+        if(it == d.end())
         {
             continue;
         }
-
-        for (auto it = iters.first; it != iters.second; it++)
-        {
-            result_out << i / seqLength + 1 << ' ' << it->second + 1 << '\n';
-        }
+            
+        result_out << seq_ids[i / seq_length] << ' ' << it->second << '\n';
     }
 }
 
 int main(int argc, char **argv)
 {
-    std::string pathToMetadata(argv[1]);
-    std::string pathToData(argv[2]);
-    std::string path_to_result_out(argv[3]);
+    std::string path_to_metadata(argv[1]);
+    std::string path_to_data(argv[2]);
+    std::string path_to_result(argv[3]);
 
-    int numOfSequences, seqLength;
-    readMetadataFile(pathToMetadata, numOfSequences, seqLength);
+    int num_sequences, seq_length;
+    readMetadataFile(path_to_metadata, num_sequences, seq_length);
 
-    std::vector<std::vector<int>> sequences(numOfSequences, std::vector<int>(seqLength));
-    readDataFile(pathToData, sequences);
+    std::vector<std::vector<int>> sequences(num_sequences, std::vector<int>(seq_length));
+    std::vector<int> seq_ids(num_sequences);
+    readRefinedDataFile(path_to_data, sequences, seq_ids);
 
-    std::ofstream result_out(path_to_result_out, std::ios::out);
+    std::ofstream result_out(path_to_result, std::ios::out);
     std::chrono::steady_clock::time_point t_begin_total = std::chrono::steady_clock::now();
-    hammingOne(sequences, result_out);
+    hammingOne(sequences, seq_ids, result_out);
     std::chrono::steady_clock::time_point t_end_total = std::chrono::steady_clock::now();
     std::cout << "Elapsed time: " << std::chrono::duration_cast<std::chrono::microseconds>(t_end_total - t_begin_total).count() / 1000.0 << " ms\n";
     result_out.close();
-}
-
-void readDataFile(std::string path, std::vector<std::vector<int>> &sequences)
-{
-    int numOfSequences = sequences.size();
-    int seqLength = sequences[0].size();
-    std::ifstream in;
-    in.open(path, std::ios::in);
-
-    for (int seq = 0; seq < numOfSequences; seq++)
-    {
-        for (int j = 0; j < seqLength; j++)
-        {
-            in >> sequences[seq][j];
-        }
-    }
-    in.close();
-}
-
-void readMetadataFile(std::string path, int &numOfSequences, int &sequenceLength)
-{
-    std::ifstream in;
-    in.open(path, std::ios::in);
-    in >> numOfSequences >> sequenceLength;
 }

@@ -7,22 +7,14 @@ endif
 CFLAGS=-Xcompiler=/std:c++17 -gencode arch=compute_75,code=sm_75 --std c++17 --expt-extended-lambda -extended-lambda --expt-relaxed-constexpr --forward-unknown-to-host-linker --forward-unknown-to-host-compiler
 BOOSTDIR="C:\Program Files\boost_1_80_0"
 
-all: hamming hammingcpu bruteforcecpu generator compare_results
-
 hamming:
 	nvcc $(CFLAGS) -ccbin $(CCBIN) ./src/kernel.cu -o ./bin/$@ -I ./include
-
-hashTableTest:
-	nvcc -ccbin $(CCBIN) ./test/hashTableTest.cu -o ./bin/$@ -I ./include
-
-arrayTest:
-	nvcc -ccbin $(CCBIN) ./test/arrayTest.cu -o ./bin/$@ -I ./include
 
 hammingcpu:
 	g++ ./src/linear.cpp -o ./bin/$@ -I ./include
 
 bruteforcecpu:
-	g++ ./src/bruteForce.cpp -o ./bin/$@
+	g++ ./src/brute_force.cpp -o ./bin/$@ -I ./include
 
 generator:
 	g++ ./src/generator.cpp -o ./bin/$@
@@ -33,17 +25,8 @@ compare_results:
 remove_duplicates:
 	g++ ./src/remove_duplicates.cpp -o ./bin/$@ -I ./include -I $(BOOSTDIR)
 
-test_bcht:
-	nvcc $(CFLAGS) -ccbin $(CCBIN) ./test/test_bcht.cu -o ./bin/$@ -I ./include
-
-example_bcht:
-	nvcc $(CFLAGS) -ccbin $(CCBIN) ./test/example_bcht.cu -o ./bin/$@ -I ./include
-
 example_htsc:
 	nvcc $(CFLAGS) -ccbin $(CCBIN) ./test/example_htsc.cu -o ./bin/$@ -I ./include
-
-hamming4:
-	nvcc $(CFLAGS) -ccbin $(CCBIN) ./src/kernel4.cu -o ./bin/$@ -I ./include
 
 extend_to_duplicates:
 	g++ ./src/$@.cpp -o ./bin/$@
