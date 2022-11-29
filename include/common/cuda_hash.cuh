@@ -57,37 +57,3 @@ private:
     uint32_t hash_z_;
     uint32_t hash_w_;
 };
-
-template <typename Hash, typename RNG>
-struct hf_initializer {
-    Hash operator()(RNG& rng) {
-        uint32_t x = rng() % Hash::prime_divisor;
-        if (x < 1u) {
-            x = 1;
-        }
-        uint32_t y = rng() % Hash::prime_divisor;
-        return Hash(x, y);
-    }
-};
-
-template <typename RNG, typename T1, typename T2, typename T3>
-struct hf_initializer<CudaHash<triple<T1, T2, T3>>, RNG> {
-    using Hash = CudaHash<triple<T1, T2, T3>>;
-    Hash operator()(RNG& rng) {
-        uint32_t x = rng() % Hash::prime_divisor;
-        if (x < 1u) {
-            x = 1;
-        }
-        uint32_t y = rng() % Hash::prime_divisor;
-        if (y < 1u) {
-            y = 1;
-        }
-        uint32_t z = rng() % Hash::prime_divisor;
-        if (z < 1u) {
-            z = 1;
-        }
-        uint32_t w = rng() % Hash::prime_divisor;
-
-        return Hash(x, y, z, w);
-    }
-};

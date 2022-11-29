@@ -37,13 +37,7 @@ public:
 
     void deallocate(T* p, size_t) { CUDA_TRY(cudaFree(p)); }
 
-    void construct(T* p) {
-        // no-op: once memory has been allocated by cudaMalloc(), we cannot
-        // access it from host
-    }
+    void construct(T* p) {}
 
-    void destroy(T* p) {
-        // no-op: once memory has been allocated by cudaMalloc(), we cannot
-        // access it from host
-    }
+    void destroy(T* p) {}
 };

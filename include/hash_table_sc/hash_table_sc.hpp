@@ -8,6 +8,18 @@
 #include "detail/cuda_lock.cuh"
 #include "detail/entry.hpp"
 
+/**
+ * @brief Static associative GPU hash table using separate chaining to resolve
+ * collisions.
+ *
+ * @tparam Key Type of the key values
+ * @tparam T Type of the mapped value
+ * @tparam Hash Unary function object class that defines the hash function
+ * @tparam Allocator The allocator to use for managing GPU device memory
+ * @tparam Lock Type of the lock object used to enforce mutual exclusion between
+ * GPU threads accessing the same hash table bucket. The class must expose
+ * `lock` and `unlock` member functions
+ */
 template <class Key,
           class T,
           class Hash = CudaHash<Key>,
@@ -33,20 +45,81 @@ struct HashTableSC {
 
     HashTableSC(const HashTableSC& other);
 
-    HashTableSC(int nb_entries_, int nb_elements_, T sentinel_value);
+    /**
+     * @brief Constructs a new hash table object with the specified capacity and
+     * buckets number. Uses the specified sentinel value to represent value that
+     * doesn't exist in the hash table.
+     *
+     * @param num_entries Number of buckets in the hash table
+     * @param num_elements Capacity of the hash table, i.e. maximum number of
+     * elements the hash table can store
+     * @param sentinel_value A reserved value denoting empty value
+     */
+    HashTableSC(int num_entries, int num_elements, T sentinel_value);
 
     ~HashTableSC();
 
+    /**
+     * @brief Host-side member function for inserting all pairs defined by the
+     * input argument iterators. Inserting non-unique keys is allowed, although
+     * the find operation on a non-unique key will return only the most recently
+     * inserted value associated with that key in that case.
+     *
+     * @tparam InputIt Device-side iterator that can be dereferenced to
+     * `value_type`
+     * @param first Beginning of the input pairs to insert
+     * @param last End of the input pairs to insert
+     * @return Success (true) or failure (false) of the insertion operation
+     */
     template <typename InputIt>
     bool insert(InputIt first, InputIt last);
 
+    /**
+     * @brief Host-side member function for finding values associated with all
+     * keys defined by the input argument iterators.
+     *
+     * @tparam InputIt Device-side iterator that can be dereferenced to
+     * `key_type`
+     * @tparam OutputIt Device-side iterator that can be dereferenced to
+     * `mapped_type`
+     * @param first Beginning of the input keys to find
+     * @param last End of the input keys to find
+     * @param output_begin Beginning of the output buffer to store the reults
+     * into. The size of the buffer must match the number of queries defined by
+     * the input iterators
+     */
     template <typename InputIt, typename OutputIt>
     void find(InputIt first, InputIt last, OutputIt output_begin);
 
+    /**
+     * @brief Device-side member function that inserts a single pair into the
+     * hash table.
+     *
+     * @param pair A key-value pair to be inserted into the hash table
+     * @param thread_id The id of the thread performing the insertion
+     * @param lane_id The id of the thread performing the insertion relative to
+     * the thread's warp
+     * @return Success (true) or failure (false) of the insertion operation
+     */
     __device__ bool insert(const value_type& pair, int thread_id, int lane_id);
 
+    /**
+     * @brief Device-side member function that finds a single pair in the hash
+     * table.
+     *
+     * @param key A key whose associated value is to be found in the hash table
+     * @return The value associated with the key if the key exists in the hash
+     * table or `sentinel_value` otherwise.
+     */
     __device__ mapped_type find(key_type const& key);
 
+    /**
+     * @brief Get the bucket that contains a pair with a given key.
+     *
+     * @param key A key whose associated bucket is to be found in the hash table
+     * @return A bucket containing `key` if it exists in the hash table or
+     * `nullptr` otherwise
+     */
     __host__ __device__ entry_type* getBucket(key_type key);
 
 private:
@@ -69,34 +142,5 @@ private:
     lock_type* d_locks_;
     std::shared_ptr<lock_type> locks_;
 };
-
-template <class Key,
-          class T,
-          class DevHash,
-          class DevAllocator,
-          class HostHash,
-          class HostAllocator>
-void copyTableToHost(const HashTableSC<Key, T, DevHash, DevAllocator>& table,
-                     HashTableSC<Key, T, HostHash, HostAllocator>& hostTable) {
-    cudaMemcpy(hostTable.d_entries_, table.d_entries_,
-               table.count_ * sizeof(Entry<Key, T>*), cudaMemcpyDeviceToHost);
-    cudaMemcpy(hostTable.d_pool_, table.d_pool_,
-               table.elements_ * sizeof(Entry<Key, T>), cudaMemcpyDeviceToHost);
-
-    for (int i = 0; i < table.elements_; i++) {
-        if (hostTable.d_pool_[i].next != nullptr)
-            hostTable.d_pool_[i].next =
-                (Entry<Key, T>*)((size_t)hostTable.d_pool_[i].next -
-                                 (size_t)table.d_pool_ +
-                                 (size_t)hostTable.d_pool_);
-    }
-    for (int i = 0; i < table.count_; i++) {
-        if (hostTable.d_entries_[i] != nullptr)
-            hostTable.d_entries_[i] =
-                (Entry<Key, T>*)((size_t)hostTable.d_entries_[i] -
-                                 (size_t)table.d_pool_ +
-                                 (size_t)hostTable.d_pool_);
-    }
-}
 
 #include "hash_table_sc/detail/hash_table_sc_impl.cuh"

@@ -48,7 +48,5 @@ int main() {
         auto expected_pair = h_pairs[i];
         auto found_result = h_results[i];
         std::cout << "Found " << key << " -> " << found_result << '\n';
-        // std::cout << "Found (" << key.first << " " << key.second << " " << key.third << ") -> "
-        //           << found_result << '\n';
     }
 }
