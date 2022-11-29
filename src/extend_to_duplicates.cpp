@@ -2,6 +2,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -24,31 +25,38 @@ std::vector<std::pair<int, int>> readPairs(std::string path) {
     return pairs;
 }
 
-std::vector<std::vector<int>> getClasses(std::string path) {
+std::unordered_map<int, std::vector<int>> getClasses(std::string path) {
     std::ifstream in;
     in.open(path, std::ios::in);
-    std::vector<std::vector<int>> classes{};
+
+    std::unordered_map<int, std::vector<int>> classes{};
     std::string line;
     while (std::getline(in, line)) {
         std::istringstream iss(line);
+        int rep;
+        iss >> rep;
+
+        std::vector<int> cur_class{};
         int x;
-        std::vector<int> cur_class;
         while (iss >> x) {
             cur_class.push_back(x);
         }
-        classes.push_back(cur_class);
+        classes.insert(std::make_pair(rep, cur_class));
     }
     return classes;
 }
 
-std::vector<int> getClass(std::vector<std::vector<int>> classes,
-                          int representative) {
-    for (int i = 0; i < classes.size(); i++) {
-        if (classes[i][0] == representative) {
-            return classes[i];
-        }
-    }
-    return {};
+std::vector<int> getClass(
+    const std::unordered_map<int, std::vector<int>>& classes,
+    int representative) {
+    auto it = classes.find(representative);
+    if (it == classes.cend())
+        return {};
+
+    std::vector<int> full_class((*it).second);
+    full_class.push_back(representative);
+
+    return full_class;
 }
 
 int main(int argc, char** argv) {
