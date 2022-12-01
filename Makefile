@@ -28,5 +28,8 @@ remove_duplicates:
 example_htsc:
 	nvcc $(CFLAGS) -ccbin $(CCBIN) ./test/example_htsc.cu -o ./bin/$@ -I ./include
 
+generator_gpu:
+	nvcc $(CFLAGS) -ccbin $(CCBIN) ./src/$@.cu -o ./bin/$@ -I ./include
+
 extend_to_duplicates:
 	g++ ./src/$@.cpp -o ./bin/$@
