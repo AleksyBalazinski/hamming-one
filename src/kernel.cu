@@ -3,10 +3,10 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <thread>
 #include <vector>
-#include <limits>
 
 #include "common/cuda_allocator.hpp"
 #include "common/cuda_timer.cuh"
@@ -96,14 +96,16 @@ int main(int argc, char** argv) {
     data_copying_timer2.stopTimer();
     auto results_copy_ms = data_copying_timer2.getElapsedMs();
 
+    std::chrono::steady_clock::time_point t_end_total =
+        std::chrono::steady_clock::now();
+
     std::ofstream result_out(path_to_result, std::ios::out);
     for (int i = 0; i < total_len; i++) {
         if (h_results[i] != empty_value) {
             result_out << seq_ids[i] << ' ' << h_results[i] << '\n';
         }
     }
-    std::chrono::steady_clock::time_point t_end_total =
-        std::chrono::steady_clock::now();
+
     std::cout << "Elapsed total time: "
               << std::chrono::duration_cast<std::chrono::microseconds>(
                      t_end_total - t_begin_total)

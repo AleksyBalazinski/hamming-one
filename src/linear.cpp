@@ -55,9 +55,9 @@ std::vector<size_t> computeHashes(Iterator begin,
     return hashes;
 }
 
-void hammingOne(const std::vector<std::vector<int>>& sequences,
-                const std::vector<int>& seq_ids,
-                std::ofstream& result_out) {
+std::vector<std::pair<int, int>> hammingOne(
+    const std::vector<std::vector<int>>& sequences,
+    const std::vector<int>& seq_ids) {
     int seq_length = sequences[0].size();
     using hash_type = Triple<size_t, size_t, int>;
     std::unordered_map<hash_type, int, TripleHash<size_t, size_t, int>> d;
@@ -67,6 +67,7 @@ void hammingOne(const std::vector<std::vector<int>>& sequences,
     int sId = 0;
     std::vector<hash_type> own_hashes;
     std::vector<hash_type> matching_hashes;
+    std::vector<std::pair<int, int>> result;
     for (const auto& seq : sequences) {
         auto h1 = computeHashes(seq.cbegin(), seq.cend(), p, m1, seq_length);
         auto h2 = computeHashes(seq.crbegin(), seq.crend(), p, m2, seq_length);
@@ -106,8 +107,11 @@ void hammingOne(const std::vector<std::vector<int>>& sequences,
             continue;
         }
 
-        result_out << seq_ids[i / seq_length] << ' ' << it->second << '\n';
+        // result_out << seq_ids[i / seq_length] << ' ' << it->second << '\n';
+        result.push_back(std::make_pair(seq_ids[i / seq_length], it->second));
     }
+
+    return result;
 }
 
 int main(int argc, char** argv) {
@@ -126,9 +130,14 @@ int main(int argc, char** argv) {
     std::ofstream result_out(path_to_result, std::ios::out);
     std::chrono::steady_clock::time_point t_begin_total =
         std::chrono::steady_clock::now();
-    hammingOne(sequences, seq_ids, result_out);
+
+    auto pairs = hammingOne(sequences, seq_ids);
     std::chrono::steady_clock::time_point t_end_total =
         std::chrono::steady_clock::now();
+
+    for (const auto& p : pairs) {
+        result_out << p.first << ' ' << p.second << '\n';
+    }
     std::cout << "Elapsed time: "
               << std::chrono::duration_cast<std::chrono::microseconds>(
                      t_end_total - t_begin_total)
