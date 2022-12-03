@@ -12,6 +12,7 @@ HashTableSC<Key, T, Hash, Allocator, Lock>::HashTableSC(int num_entries,
     d_entries_ = entry_ptr_allocator_.allocate(count_);
     entries_ =
         std::shared_ptr<entry_type*>(d_entries_, CudaDeleter<entry_type*>());
+    CUDA_TRY(cudaMemset(d_entries_, 0, count_ * sizeof(entry_type*)));
     d_pool_ = entry_allocator_.allocate(elements_);
     pool_ = std::shared_ptr<entry_type>(d_pool_, CudaDeleter<entry_type>());
     d_locks_ = lock_allocator_.allocate(count_);
