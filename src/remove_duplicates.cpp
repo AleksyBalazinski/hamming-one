@@ -23,6 +23,8 @@ int main(int argc, char** argv) {
     std::unordered_map<std::vector<int>, std::vector<int>,
                        boost::hash<std::vector<int>>>
         map{};
+
+    // The loop executes in O(n*l), since hashing a vector is O(l)
     for (int i = 0; i < sequences.size(); i++) {
         auto location = map.find(sequences[i]);
         if (location == map.cend()) {
@@ -33,7 +35,6 @@ int main(int argc, char** argv) {
         }
     }
 
-    // TODO parallelize
     std::ofstream out;
     out.open(path_to_info_out, std::ios::out);
     for (const auto& kv : map) {

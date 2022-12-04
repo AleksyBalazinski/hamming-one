@@ -3,6 +3,38 @@
 #include "hamming/rolling_hash.cuh"
 
 namespace hamming::device_side {
+/**
+ * @brief Calculate the hash object for each position in every sequence.
+ * @details The hash object calculated for a given position of a sequence is
+ * unique across all positions across all \a unique sequences. In another words,
+ * for different sequences s1 through sn, each of length l, each position within
+ * every sequence si will be assigned a unique object from a set of l*n objects.
+ * This object, for a position k of sequence s, is a triple containing two
+ * hashes: one calculated from the subsequence s[0..k-1] - \a prefix hash, and
+ * the other from s[k+1..|s|-1] - \a suffix hash, and an integer which is either
+ * 1. the bit s[i] or 2. the bit that is the negation of s[i]. The hash objects
+ * given by 1. are called \a own \a hashes whereas the objects given by 2.
+ * are refered to as \a matching \a hashes.
+ * @tparam SeqIt Iterator to values of joined sequences
+ * @tparam PartHashIt Iterator to values of partial hashes (suffix or prefix
+ * hashes)
+ * @tparam OutHashIt Iterator to hash objects
+ * @param seq_length length of one sequence
+ * @param first Beginning of the values of joined sequences
+ * @param last End of the values of joined sequences
+ * @param prefixes_first Beginning of the preallocated buffer storing prefix
+ * hashes. The buffer shall have size equal to the total length of all joined
+ * sequences and need not be initialized
+ * @param suffixes_first Beginning of the preallocated buffer storing suffix
+ * hashes. The buffer shall have size equal to the total length of all joined
+ * sequences and need not be initialized
+ * @param matching_hashes_first Beginning of the preallocated buffer of size
+ * equal to the total length of all joined sequences. The buffer contains \a own
+ * hash objects once the function exits normally.
+ * @param own_hashes_first Beginning of the preallocated buffer of size equal to
+ * the total length of all joined sequences. The buffer contains \a matching
+ * hash objects once the function exits normally.
+ */
 template <typename SeqIt, typename PartHashIt, typename OutHashIt>
 __global__ void getHashes(int seq_length,
                           SeqIt first,

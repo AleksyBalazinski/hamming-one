@@ -68,6 +68,10 @@ int main(int argc, char** argv) {
     auto classes = getClasses(refinement_info_path);
 
     std::ofstream out(hamm_with_duplicates, std::ios::out);
+
+    // The loop executes in O(# hamming one pairs), provided sequence length is
+    // not too small relative to the number of sequences and hence the number of
+    // non-unique sequences is low
     for (const auto& p : hamm_one_pairs) {
         auto c1 = getClass(classes, p.first);
         auto c2 = getClass(classes, p.second);

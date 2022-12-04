@@ -40,6 +40,7 @@ int main(int argc, char** argv) {
         std::chrono::steady_clock::now();
     thrust::device_vector<int> d_sequences(total_len);
 
+    // copy data to device
     data_copying_timer1.startTimer();
     d_sequences = h_sequences;
     data_copying_timer1.startTimer();
@@ -57,9 +58,8 @@ int main(int argc, char** argv) {
     hamming::device_side::getHashes<<<num_blocks, block_size>>>(
         seq_length, d_sequences.begin(), d_sequences.end(), d_prefixes.begin(),
         d_suffixes.begin(), d_matching_hashes.begin(), d_own_hashes.begin());
-    // HASH TABLE
-    // dev_own_hashes - keys, seq_id = i / seq_length - values
-    // dev_matching_hashes - queries
+
+    // create the hash table
     const int empty_value = std::numeric_limits<int>::max();
     HashTableSC<hash_type, int> table(HASH_ENTRIES, total_len, empty_value);
 
@@ -75,6 +75,7 @@ int main(int argc, char** argv) {
     thrust::transform(thrust::device, d_own_hashes.begin(), d_own_hashes.end(),
                       d_values.begin(), d_pairs.begin(), toPair);
 
+    // populate the hash table
     insert_timer.startTimer();
     table.insert(d_pairs.begin(), d_pairs.end());
     insert_timer.stopTimer();
@@ -83,6 +84,7 @@ int main(int argc, char** argv) {
     CUDA_TRY(cudaDeviceSynchronize());
     thrust::device_vector<int> d_results(total_len);
 
+    // find matches (hamming one pairs)
     find_timer.startTimer();
     table.find(d_matching_hashes.begin(), d_matching_hashes.end(),
                d_results.begin());
@@ -91,6 +93,7 @@ int main(int argc, char** argv) {
 
     CUDA_TRY(cudaDeviceSynchronize());
 
+    // copy results to host
     data_copying_timer2.startTimer();
     thrust::host_vector<int> h_results = d_results;
     data_copying_timer2.stopTimer();
