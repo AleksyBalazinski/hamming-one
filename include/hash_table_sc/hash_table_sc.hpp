@@ -3,6 +3,7 @@
 #include <functional>
 #include <memory>
 #include "common/cuda_allocator.hpp"
+#include "common/cuda_deleter.hpp"
 #include "common/cuda_hash.cuh"
 #include "common/pair.cuh"
 #include "detail/cuda_lock.cuh"

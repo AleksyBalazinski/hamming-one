@@ -1,12 +1,6 @@
 #pragma once
 
-#include <iostream>
 #include "cuda_helpers.cuh"
-
-template <typename T>
-struct CudaDeleter {
-    void operator()(T* p) { CUDA_TRY(cudaFree(p)); }
-};
 
 template <typename T>
 class CudaAllocator {
