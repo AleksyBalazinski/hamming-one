@@ -12,6 +12,10 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+New-Item -Path . -Name 'assets' -ItemType 'directory' -Force
+New-Item -Path . -Name 'bin' -ItemType 'directory' -Force
+New-Item -Path . -Name 'result' -ItemType 'directory' -Force
+
 make generator
 if($LASTEXITCODE -ne 0){
     Break
