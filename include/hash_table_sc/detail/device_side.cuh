@@ -1,5 +1,5 @@
 /**
- *   Copyright 2023 Aleksy Balazinski
+ *   Copyright 2021 The Regents of the University of California, Davis
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.

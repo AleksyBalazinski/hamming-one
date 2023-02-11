@@ -74,6 +74,6 @@ Process returned 0
 ## Acknowledgments
 Portions of the source code are based on
 * the paper _Better GPU Hash Tables_ by Muhammad A. Awad, Saman Ashkiani, Serban D. Porumbescu, Martín Farach-Colton, and John D. Owens,
-*  the project: [BGHT: Better GPU Hash Tables](https://github.com/owensgroup/BGHT) (licensed under Apache 2.0 license) by the same authors.
+*  the project [BGHT: Better GPU Hash Tables](https://github.com/owensgroup/BGHT) (licensed under Apache 2.0 license) by the same authors.
 
 All relevant files have been marked with the original copyright notice.
