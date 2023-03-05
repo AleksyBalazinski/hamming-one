@@ -45,11 +45,12 @@ The comparison of the performance of both implementations is shown in the graph 
 On average, the GPU implementation was 10 times faster compared to the CPU implementation.
 
 ## Usage
-Build (Powershell). This will create `assets`, `bin`, and `result` folders and compile the project files. **You may want to adjust the paths before running**. Also, make sure you have [boost](https://www.boost.org/) installed.
+### Build (Powershell)
+This will create `assets`, `bin`, and `result` folders and compile the project files. **You may want to adjust the paths before running**. Also, make sure you have [boost](https://www.boost.org/) installed.
 ```
 > ./script/build
 ```
-Run (Powershell)
+### Run (Powershell)
 ```
 > ./script/run -n 1000 -l 20
 ```
